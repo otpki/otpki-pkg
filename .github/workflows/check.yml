@@ -1,5 +1,9 @@
 name: Check
 
+permissions:
+  id-token: write
+  contents: read
+
 on:
   pull_request:
     branches: [ master ]
@@ -8,15 +12,27 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    env:
+      AWS_ARTIFACT_BUCKET_NAME: ${{ vars.AWS_ARTIFACT_BUCKET_NAME }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v6
 
-    - name: Set up Go
-      uses: actions/setup-go@v6
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v6
       with:
-        go-version: '1.26'
+        role-to-assume: ${{ env.AWS_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Setup IOGO
+      uses: otpki/setup-iogo@v1
+      with:
+        go-version: 1.26.1
+        bucket-name: ${{ env.AWS_ARTIFACT_BUCKET_NAME }}
+        aws-region: ${{ env.AWS_REGION }}
 
     - name: Run go fmt
       run: |
