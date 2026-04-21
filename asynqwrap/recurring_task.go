@@ -299,7 +299,7 @@ func deleteQueuedRecurringTasks[K comparable](inspector Inspector, key K) (int, 
 
 func deleteRecurringTasksInQueue[K comparable](inspector Inspector, queue string, key K) (int, error) {
 	var deleted int
-	listFns := []func(string) ([]*asynq.TaskInfo, error){
+	listFns := []func(string, ...asynq.ListOption) ([]*asynq.TaskInfo, error){
 		inspector.ListPendingTasks,
 		inspector.ListScheduledTasks,
 		inspector.ListRetryTasks,

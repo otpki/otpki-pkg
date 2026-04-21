@@ -95,24 +95,28 @@ func (i *redisInspector) GetTaskInfo(queue, id string) (*asynq.TaskInfo, error) 
 	return i.inspector.GetTaskInfo(queue, id)
 }
 
-func (i *redisInspector) ListArchivedTasks(queue string) ([]*asynq.TaskInfo, error) {
-	return i.inspector.ListArchivedTasks(queue)
+func (i *redisInspector) ListArchivedTasks(queue string, opts ...asynq.ListOption) ([]*asynq.TaskInfo, error) {
+	return i.inspector.ListArchivedTasks(queue, opts...)
 }
 
-func (i *redisInspector) ListActiveTasks(queue string) ([]*asynq.TaskInfo, error) {
-	return i.inspector.ListActiveTasks(queue)
+func (i *redisInspector) ListCompletedTasks(queue string, opts ...asynq.ListOption) ([]*asynq.TaskInfo, error) {
+	return i.inspector.ListCompletedTasks(queue, opts...)
 }
 
-func (i *redisInspector) ListPendingTasks(queue string) ([]*asynq.TaskInfo, error) {
-	return i.inspector.ListPendingTasks(queue)
+func (i *redisInspector) ListActiveTasks(queue string, opts ...asynq.ListOption) ([]*asynq.TaskInfo, error) {
+	return i.inspector.ListActiveTasks(queue, opts...)
 }
 
-func (i *redisInspector) ListRetryTasks(queue string) ([]*asynq.TaskInfo, error) {
-	return i.inspector.ListRetryTasks(queue)
+func (i *redisInspector) ListPendingTasks(queue string, opts ...asynq.ListOption) ([]*asynq.TaskInfo, error) {
+	return i.inspector.ListPendingTasks(queue, opts...)
 }
 
-func (i *redisInspector) ListScheduledTasks(queue string) ([]*asynq.TaskInfo, error) {
-	return i.inspector.ListScheduledTasks(queue)
+func (i *redisInspector) ListRetryTasks(queue string, opts ...asynq.ListOption) ([]*asynq.TaskInfo, error) {
+	return i.inspector.ListRetryTasks(queue, opts...)
+}
+
+func (i *redisInspector) ListScheduledTasks(queue string, opts ...asynq.ListOption) ([]*asynq.TaskInfo, error) {
+	return i.inspector.ListScheduledTasks(queue, opts...)
 }
 
 func (i *redisInspector) ArchiveTask(queue, id string) error {

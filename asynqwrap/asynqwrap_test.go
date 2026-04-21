@@ -386,6 +386,62 @@ func TestInspectorListsRetryTasks(t *testing.T) {
 	}
 }
 
+func TestInspectorCanListPaginated(t *testing.T) {
+	t.Parallel()
+	broker, _ := New(Config{Mode: ModeMemory})
+	defer broker.Close()
+	queue := "q"
+	inspector := broker.Inspector()
+	srv := broker.Server(asynq.Config{
+		Concurrency: 1,
+		Queues:      map[string]int{queue: 1},
+	})
+	defer srv.Shutdown()
+
+	count := 5
+	out := make(chan struct{}, 1)
+	require.NoError(t, srv.Start(asynq.HandlerFunc(func(ctx context.Context, task *asynq.Task) error {
+		out <- struct{}{}
+		return nil
+	})))
+
+	for range count {
+		_, err := broker.Client().Enqueue(asynq.NewTask("completes", nil), asynq.Retention(time.Hour), asynq.Queue(queue))
+		require.NoError(t, err)
+	}
+	for range count {
+		select {
+		case <-out:
+		case <-time.After(3 * time.Second):
+			t.Fatal("timedout")
+		}
+	}
+
+	tasks, err := inspector.ListCompletedTasks(queue)
+	require.NoError(t, err)
+	require.Len(t, tasks, count)
+
+	tasks, err = inspector.ListCompletedTasks(queue, asynq.PageSize(-9000), asynq.Page(-9000))
+	require.NoError(t, err)
+	require.Len(t, tasks, 1)
+
+	tasks, err = inspector.ListCompletedTasks(queue, asynq.PageSize(0), asynq.Page(0))
+	require.NoError(t, err)
+	require.Len(t, tasks, 1)
+
+	tasks, err = inspector.ListCompletedTasks(queue, asynq.PageSize(2), asynq.Page(1))
+	require.NoError(t, err)
+	require.Len(t, tasks, 2)
+
+	tasks, err = inspector.ListCompletedTasks(queue, asynq.PageSize(2), asynq.Page(3))
+	require.NoError(t, err)
+	require.Len(t, tasks, 1)
+
+	tasks, err = inspector.ListCompletedTasks(queue, asynq.PageSize(2), asynq.Page(4))
+	require.NoError(t, err)
+	require.Len(t, tasks, 0)
+}
+
 func TestInspectorRunAndDeleteAllRetryTasks(t *testing.T) {
 	t.Parallel()
 	broker, _ := New(Config{Mode: ModeMemory})

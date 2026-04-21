@@ -172,34 +172,40 @@ func (i *memoryInspector) GetTaskInfo(queue, id string) (*asynq.TaskInfo, error)
 	return cloneTaskInfo(rec.info), nil
 }
 
-func (i *memoryInspector) ListArchivedTasks(queue string) ([]*asynq.TaskInfo, error) {
+func (i *memoryInspector) ListArchivedTasks(queue string, opts ...asynq.ListOption) ([]*asynq.TaskInfo, error) {
 	i.broker.mu.Lock()
 	defer i.broker.mu.Unlock()
-	return i.broker.listTasksByStateLocked(queue, asynq.TaskStateArchived), nil
+	return i.broker.listTasksByStateLocked(queue, asynq.TaskStateArchived, opts...), nil
 }
 
-func (i *memoryInspector) ListActiveTasks(queue string) ([]*asynq.TaskInfo, error) {
+func (i *memoryInspector) ListCompletedTasks(queue string, opts ...asynq.ListOption) ([]*asynq.TaskInfo, error) {
 	i.broker.mu.Lock()
 	defer i.broker.mu.Unlock()
-	return i.broker.listTasksByStateLocked(queue, asynq.TaskStateActive), nil
+	return i.broker.listTasksByStateLocked(queue, asynq.TaskStateCompleted, opts...), nil
 }
 
-func (i *memoryInspector) ListPendingTasks(queue string) ([]*asynq.TaskInfo, error) {
+func (i *memoryInspector) ListActiveTasks(queue string, opts ...asynq.ListOption) ([]*asynq.TaskInfo, error) {
 	i.broker.mu.Lock()
 	defer i.broker.mu.Unlock()
-	return i.broker.listTasksByStateLocked(queue, asynq.TaskStatePending), nil
+	return i.broker.listTasksByStateLocked(queue, asynq.TaskStateActive, opts...), nil
 }
 
-func (i *memoryInspector) ListRetryTasks(queue string) ([]*asynq.TaskInfo, error) {
+func (i *memoryInspector) ListPendingTasks(queue string, opts ...asynq.ListOption) ([]*asynq.TaskInfo, error) {
 	i.broker.mu.Lock()
 	defer i.broker.mu.Unlock()
-	return i.broker.listTasksByStateLocked(queue, asynq.TaskStateRetry), nil
+	return i.broker.listTasksByStateLocked(queue, asynq.TaskStatePending, opts...), nil
 }
 
-func (i *memoryInspector) ListScheduledTasks(queue string) ([]*asynq.TaskInfo, error) {
+func (i *memoryInspector) ListRetryTasks(queue string, opts ...asynq.ListOption) ([]*asynq.TaskInfo, error) {
 	i.broker.mu.Lock()
 	defer i.broker.mu.Unlock()
-	return i.broker.listTasksByStateLocked(queue, asynq.TaskStateScheduled), nil
+	return i.broker.listTasksByStateLocked(queue, asynq.TaskStateRetry, opts...), nil
+}
+
+func (i *memoryInspector) ListScheduledTasks(queue string, opts ...asynq.ListOption) ([]*asynq.TaskInfo, error) {
+	i.broker.mu.Lock()
+	defer i.broker.mu.Unlock()
+	return i.broker.listTasksByStateLocked(queue, asynq.TaskStateScheduled, opts...), nil
 }
 
 func (i *memoryInspector) ArchiveTask(queue, id string) error {

@@ -135,15 +135,17 @@ type Inspector interface {
 	// GetTaskInfo returns metadata for a single task by queue and ID.
 	GetTaskInfo(queue, id string) (*asynq.TaskInfo, error)
 	// ListActiveTasks returns tasks currently being processed.
-	ListActiveTasks(queue string) ([]*asynq.TaskInfo, error)
+	ListActiveTasks(queue string, opts ...asynq.ListOption) ([]*asynq.TaskInfo, error)
+	// ListCompletedTasks returns tasks that are complete.
+	ListCompletedTasks(queue string, opts ...asynq.ListOption) ([]*asynq.TaskInfo, error)
 	// ListPendingTasks returns tasks waiting to be processed.
-	ListPendingTasks(queue string) ([]*asynq.TaskInfo, error)
+	ListPendingTasks(queue string, opts ...asynq.ListOption) ([]*asynq.TaskInfo, error)
 	// ListArchivedTasks returns tasks moved to archive/dead-letter state.
-	ListArchivedTasks(queue string) ([]*asynq.TaskInfo, error)
+	ListArchivedTasks(queue string, opts ...asynq.ListOption) ([]*asynq.TaskInfo, error)
 	// ListRetryTasks returns tasks waiting for another retry attempt.
-	ListRetryTasks(queue string) ([]*asynq.TaskInfo, error)
+	ListRetryTasks(queue string, opts ...asynq.ListOption) ([]*asynq.TaskInfo, error)
 	// ListScheduledTasks returns delayed tasks that have not been released yet.
-	ListScheduledTasks(queue string) ([]*asynq.TaskInfo, error)
+	ListScheduledTasks(queue string, opts ...asynq.ListOption) ([]*asynq.TaskInfo, error)
 	// ArchiveTask moves a pending, scheduled, or retry task to archived state.
 	ArchiveTask(queue, id string) error
 	// DeleteTask removes a task that has not started processing.

@@ -115,7 +115,7 @@ func (b *memoryBroker) findTaskLocked(queue, id string) *taskRecord {
 	return nil
 }
 
-func (b *memoryBroker) listTasksByStateLocked(queue string, state asynq.TaskState) []*asynq.TaskInfo {
+func (b *memoryBroker) listTasksByStateLocked(queue string, state asynq.TaskState, opts ...asynq.ListOption) []*asynq.TaskInfo {
 	var out []*asynq.TaskInfo
 
 	switch state {
@@ -149,7 +149,13 @@ func (b *memoryBroker) listTasksByStateLocked(queue string, state asynq.TaskStat
 				out = append(out, cloneTaskInfo(rec.info))
 			}
 		}
-	case asynq.TaskStateAggregating, asynq.TaskStateCompleted:
+	case asynq.TaskStateCompleted:
+		for _, rec := range b.completed {
+			if rec.info.Queue == queue && rec.info.State == asynq.TaskStateCompleted {
+				out = append(out, cloneTaskInfo(rec.info))
+			}
+		}
+	case asynq.TaskStateAggregating:
 		// These states are not exposed through the wrapper's list methods.
 	default:
 		// Unknown states are intentionally ignored.
@@ -172,7 +178,18 @@ func (b *memoryBroker) listTasksByStateLocked(queue string, state asynq.TaskStat
 		}
 	})
 
-	return out
+	listOpts := composeListOptions(opts...)
+	total := len(out)
+	size := max(listOpts.pageSize, 1)
+	pageNum := max(listOpts.pageNum-1, 0)
+	start := pageNum * size
+	end := min(start+size, total)
+	page := []*asynq.TaskInfo{}
+	for i := start; i < end; i++ {
+		page = append(page, out[i])
+	}
+
+	return page
 }
 
 func (b *memoryBroker) archiveTaskLocked(queue, id string) error {
