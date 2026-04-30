@@ -12,6 +12,7 @@ require (
 	github.com/hashicorp/vault v1.21.4
 	github.com/hibiken/asynq v0.26.0
 	github.com/jung-kurt/gofpdf v1.16.2
+	github.com/miekg/pkcs11 v1.1.2
 	github.com/prometheus/client_golang v1.23.2
 	github.com/redis/go-redis/v9 v9.18.0
 	github.com/robfig/cron/v3 v3.0.1
