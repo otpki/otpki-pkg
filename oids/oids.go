@@ -55,6 +55,11 @@ var (
 	OidSignatureECDSAWithSHA384     = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 3}
 	OidSignatureECDSAWithSHA512     = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 4}
 
+	// EC Curves
+	OidECP256 = asn1.ObjectIdentifier{1, 2, 840, 10045, 3, 1, 7}
+	OidECP384 = asn1.ObjectIdentifier{1, 3, 132, 0, 34}
+	OidECP521 = asn1.ObjectIdentifier{1, 3, 132, 0, 35}
+
 	OidExtKeyUsageAny                            = asn1.ObjectIdentifier{2, 5, 29, 37, 0}
 	OidExtKeyUsageServerAuth                     = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 3, 1}
 	OidExtKeyUsageClientAuth                     = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 3, 2}
