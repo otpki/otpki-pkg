@@ -157,21 +157,62 @@ func (e *zerologEvent) Stack() Event {
 	return e
 }
 func (e *zerologEvent) Msg(msg string) {
+	e.addTraceContextFields()
 	e.event.CallerSkipFrame(1).Msg(msg)
 	e.emit(msg)
 }
+
 func (e *zerologEvent) Msgf(format string, v ...any) {
+	e.addTraceContextFields()
 	e.event.CallerSkipFrame(1).Msgf(format, v...)
 	e.emit(fmt.Sprintf(format, v...))
 }
+
 func (e *zerologEvent) Send() {
+	e.addTraceContextFields()
 	e.event.Send()
+	e.emit("")
+}
+
+func (e *zerologEvent) addTraceContextFields() {
+	if e == nil || e.event == nil {
+		return
+	}
+
+	sc := trace.SpanContextFromContext(e.event.GetCtx())
+	if !sc.IsValid() {
+		return
+	}
+
+	traceID := sc.TraceID().String()
+	spanID := sc.SpanID().String()
+
+	e.event = e.event.
+		Str("trace_id", traceID).
+		Str("span_id", spanID)
+
+	e.attrs = appendIfMissingOTelString(e.attrs, "trace_id", traceID)
+	e.attrs = appendIfMissingOTelString(e.attrs, "span_id", spanID)
+}
+
+func appendIfMissingOTelString(
+	attrs []otellog.KeyValue,
+	key string,
+	val string,
+) []otellog.KeyValue {
+	for _, attr := range attrs {
+		if string(attr.Key) == key {
+			return attrs
+		}
+	}
+	return append(attrs, kvStr(key, val))
 }
 
 func (e *zerologEvent) emit(msg string) {
 	if e.ot == nil {
 		return
 	}
+
 	r := otellog.Record{}
 	now := time.Now()
 
@@ -183,16 +224,16 @@ func (e *zerologEvent) emit(msg string) {
 	}
 
 	attrs := append([]otellog.KeyValue(nil), e.attrs...)
+
 	if sc := trace.SpanContextFromContext(e.event.GetCtx()); sc.IsValid() {
-		attrs = append(attrs,
-			kvStr("trace_id", sc.TraceID().String()),
-			kvStr("span_id", sc.SpanID().String()),
-		)
+		attrs = appendIfMissingOTelString(attrs, "trace_id", sc.TraceID().String())
+		attrs = appendIfMissingOTelString(attrs, "span_id", sc.SpanID().String())
 	}
 
 	if len(attrs) > 0 {
 		r.AddAttributes(attrs...)
 	}
+
 	e.ot.Emit(e.ctx, r)
 }
 

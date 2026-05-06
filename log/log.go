@@ -21,10 +21,12 @@ import (
 	stdlog "log"
 	"net"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/diode"
+	"github.com/samber/oops"
 	oopszerolog "github.com/samber/oops/loggers/zerolog"
 	otellog "go.opentelemetry.io/otel/log"
 )
@@ -59,6 +61,40 @@ func (l Level) String() string {
 		return "panic"
 	default:
 		return "unknown"
+	}
+}
+
+func (l *Level) UnmarshalText(text []byte) error {
+	value := strings.ToLower(strings.TrimSpace(string(text)))
+
+	switch value {
+	case "trace":
+		*l = TraceLevel
+	case "debug":
+		*l = DebugLevel
+	case "info":
+		*l = InfoLevel
+	case "warn":
+		*l = WarnLevel
+	case "error":
+		*l = ErrorLevel
+	case "fatal":
+		*l = FatalLevel
+	case "panic":
+		*l = PanicLevel
+
+	default:
+		return oops.Errorf("invalid mode %q: expected trace, debug, info, warn, error, fatal, or panic", value)
+	}
+	return nil
+}
+
+func (l Level) MarshalText() ([]byte, error) {
+	switch l {
+	case TraceLevel, DebugLevel, InfoLevel, WarnLevel, ErrorLevel, FatalLevel, PanicLevel:
+		return []byte(l.String()), nil
+	default:
+		return nil, oops.Errorf("cannot marshal invalid mode %q", l)
 	}
 }
 

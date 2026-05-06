@@ -8,6 +8,7 @@ require (
 	github.com/apache/pulsar-client-go v0.18.0
 	github.com/go-viper/mapstructure/v2 v2.5.0
 	github.com/google/uuid v1.6.0
+	github.com/hashicorp/go-hclog v1.6.3
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/hashicorp/vault v1.21.4
 	github.com/hibiken/asynq v0.26.0
@@ -48,6 +49,7 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
+	github.com/fatih/color v1.18.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.1 // indirect
