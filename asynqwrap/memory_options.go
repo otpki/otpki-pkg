@@ -54,6 +54,8 @@ func parseOptions(now time.Time, opts []asynq.Option) taskConfig {
 }
 
 func newTaskRecord(task *asynq.Task, cfg taskConfig, now time.Time) *taskRecord {
+	task = cloneTask(task)
+
 	queue := cfg.queue
 	if queue == "" {
 		queue = "default"
@@ -141,6 +143,18 @@ func cloneTaskInfo(info *asynq.TaskInfo) *asynq.TaskInfo {
 	out.Headers = cloneHeaders(info.Headers)
 	out.Result = append([]byte(nil), info.Result...)
 	return &out
+}
+
+func cloneTask(task *asynq.Task) *asynq.Task {
+	if task == nil {
+		return nil
+	}
+	return asynq.NewTaskWithHeaders(
+		task.Type(),
+		append([]byte(nil), task.Payload()...),
+		cloneHeaders(task.Headers()),
+		taskOptions(task)...,
+	)
 }
 
 func cloneHeaders(in map[string]string) map[string]string {

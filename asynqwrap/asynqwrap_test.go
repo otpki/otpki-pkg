@@ -295,14 +295,14 @@ func TestInspectorCanInspectFailedTasks(t *testing.T) {
 		t.Fatal("task did not fail")
 	}
 
-	taskInfo, err := inspector.GetTaskInfo(info.Queue, info.ID)
-	require.NoError(t, err)
-	assert.NotEmpty(t, taskInfo.LastErr)
-
-	archived, err := inspector.ListArchivedTasks(info.Queue)
-	require.NoError(t, err)
-	require.Len(t, archived, 1)
-	assert.NotEmpty(t, archived[0].LastErr)
+	waitFor(t, 2*time.Second, func() bool {
+		taskInfo, err := inspector.GetTaskInfo(info.Queue, info.ID)
+		if err != nil || taskInfo.LastErr == "" {
+			return false
+		}
+		archived, err := inspector.ListArchivedTasks(info.Queue)
+		return err == nil && len(archived) == 1 && archived[0].LastErr != ""
+	})
 }
 
 func TestInspectorListsPendingScheduledAndGroups(t *testing.T) {
@@ -373,6 +373,7 @@ func TestInspectorListsRetryTasks(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("task did not fail into retry")
 	}
+	waitForRetryTasks(t, inspector, info.Queue, 1)
 
 	retryTasks, err := inspector.ListRetryTasks(info.Queue)
 	if err != nil {
@@ -416,6 +417,10 @@ func TestInspectorCanListPaginated(t *testing.T) {
 			t.Fatal("timedout")
 		}
 	}
+	waitFor(t, 2*time.Second, func() bool {
+		tasks, err := inspector.ListCompletedTasks(queue)
+		return err == nil && len(tasks) == count
+	})
 
 	tasks, err := inspector.ListCompletedTasks(queue)
 	require.NoError(t, err)
@@ -926,7 +931,13 @@ func TestTracingMiddlewarePropagatesProducerToConsumer(t *testing.T) {
 		t.Fatal("traced task was not processed")
 	}
 
-	spans := spansByName(exporter.GetSpans())
+	var spans map[string]tracetest.SpanStub
+	waitFor(t, 2*time.Second, func() bool {
+		spans = spansByName(exporter.GetSpans())
+		return spans["root"].Name != "" &&
+			spans["asynq enqueue trace:task"].Name != "" &&
+			spans["asynq process trace:task"].Name != ""
+	})
 	root := spans["root"]
 	enqueue := spans["asynq enqueue trace:task"]
 	process := spans["asynq process trace:task"]
@@ -1015,8 +1026,15 @@ func TestWithTracingSchedulerOptsCreatesProducerSpan(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("scheduled traced task was not processed")
 	}
+	_ = scheduler.Unregister(entryID)
+	scheduler.Shutdown()
 
-	spans := spansByName(exporter.GetSpans())
+	var spans map[string]tracetest.SpanStub
+	waitFor(t, 2*time.Second, func() bool {
+		spans = spansByName(exporter.GetSpans())
+		return spans["asynq schedule trace:periodic"].Name != "" &&
+			spans["asynq process trace:periodic"].Name != ""
+	})
 	scheduled := spans["asynq schedule trace:periodic"]
 	process := spans["asynq process trace:periodic"]
 	if process.Parent.TraceID() != scheduled.SpanContext.TraceID() || process.Parent.SpanID() != scheduled.SpanContext.SpanID() {
@@ -1200,6 +1218,7 @@ func TestDeleteRecurringTaskRemovesPendingScheduledAndRetryCopies(t *testing.T) 
 	case <-time.After(2 * time.Second):
 		t.Fatal("task did not enter retry")
 	}
+	waitForRetryTasks(t, inspector, "default", 1)
 
 	pendingTask := asynq.NewTaskWithHeaders("recurring:delete", []byte("pending"), map[string]string{
 		recurringTaskKeyHeader: `"job-1"`,

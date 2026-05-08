@@ -16,6 +16,7 @@ type MemoryStateStore[K any, V any] struct {
 }
 
 type memorySession[V any] struct {
+	mu           sync.Mutex
 	Data         V
 	CreatedAt    time.Time
 	ExpiresAt    time.Time
@@ -115,16 +116,19 @@ func (sm *MemoryStateStore[K, V]) get(ctx context.Context, key K, renew bool) (V
 	session := value.(*memorySession[V])
 	now := helpers.Now()
 
+	session.mu.Lock()
+	defer session.mu.Unlock()
+
 	// check TTL expiration (only if ExpiresAt is set)
 	if !session.ExpiresAt.IsZero() && now.After(session.ExpiresAt) {
-		sm.sessions.Delete(keyString)
+		sm.sessions.CompareAndDelete(keyString, value)
 		var zero V
 		return zero, ErrStateNotFound
 	}
 
 	// check max TTL
 	if !session.MaxExpiresAt.IsZero() && now.After(session.MaxExpiresAt) {
-		sm.sessions.Delete(keyString)
+		sm.sessions.CompareAndDelete(keyString, value)
 		var zero V
 		return zero, ErrStateNotFound
 	}
@@ -140,7 +144,6 @@ func (sm *MemoryStateStore[K, V]) get(ctx context.Context, key K, renew bool) (V
 
 			session.CreatedAt = now
 			session.ExpiresAt = now.Add(session.TTL)
-			sm.sessions.Store(keyString, session)
 		}
 	}
 
@@ -190,11 +193,13 @@ func (sm *MemoryStateStore[K, V]) cleanupExpiredSessions() {
 				return true
 			}
 
+			session.mu.Lock()
 			expiredByTTL := !session.ExpiresAt.IsZero() && now.After(session.ExpiresAt)
 			expiredByMax := !session.MaxExpiresAt.IsZero() && now.After(session.MaxExpiresAt)
+			session.mu.Unlock()
 
 			if expiredByTTL || expiredByMax {
-				sm.sessions.Delete(key)
+				sm.sessions.CompareAndDelete(key, value)
 			}
 			return true
 		})
