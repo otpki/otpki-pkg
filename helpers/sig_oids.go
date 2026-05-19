@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"crypto"
+	"crypto/circl"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rsa"
@@ -333,8 +334,98 @@ func GetAlgoAndHash(pubKey crypto.PublicKey, oid *asn1.ObjectIdentifier) (pkix.A
 		default:
 			return pkix.AlgorithmIdentifier{}, 0, oops.In(ServiceName).Errorf("unsupported ECDSA signature algorithm: %s", oid.String())
 		}
-		// TODO Support additional public key types
+	case circl.PublicKey:
+		defaultSigAlg := x509.SignatureAlgorithmByCirclScheme(key.Scheme())
+		if defaultSigAlg == x509.UnknownSignatureAlgorithm {
+			return pkix.AlgorithmIdentifier{}, 0, oops.In(ServiceName).Errorf("unsupported Circl signature scheme: %s", key.Scheme().Name())
+		}
+
+		requestedSigAlg := defaultSigAlg
+		if oid != nil {
+			var err error
+			requestedSigAlg, err = SigAlgFromAlgID(*oid, nil)
+			if err != nil {
+				return pkix.AlgorithmIdentifier{}, 0, oops.In(ServiceName).Wrapf(err, "resolving requested Circl signature algorithm")
+			}
+			if requestedSigAlg != defaultSigAlg {
+				return pkix.AlgorithmIdentifier{}, 0, oops.In(ServiceName).Errorf(
+					"requested signature algorithm %v does not match Circl key scheme %s",
+					requestedSigAlg,
+					key.Scheme().Name(),
+				)
+			}
+		}
+
+		algOID, params, err := AlgIDFromSigAlg(requestedSigAlg)
+		if err != nil {
+			return pkix.AlgorithmIdentifier{}, 0, oops.In(ServiceName).Wrapf(err, "encoding Circl signature algorithm")
+		}
+
+		algID := pkix.AlgorithmIdentifier{Algorithm: algOID}
+		if params != nil {
+			algID.Parameters = *params
+		}
+		return algID, crypto.Hash(0), nil
 	default:
+		return getHashlessAlgoFromSPKI(pubKey, oid)
+	}
+}
+
+func getHashlessAlgoFromSPKI(pubKey crypto.PublicKey, oid *asn1.ObjectIdentifier) (pkix.AlgorithmIdentifier, crypto.Hash, error) {
+	pubDER, err := x509.MarshalPKIXPublicKey(pubKey)
+	if err != nil {
 		return pkix.AlgorithmIdentifier{}, 0, oops.In(ServiceName).Errorf("unsupported public key type: %T", pubKey)
+	}
+
+	var spki SubjectPublicKeyInfo
+	if _, err := asn1.Unmarshal(pubDER, &spki); err != nil {
+		return pkix.AlgorithmIdentifier{}, 0, oops.In(ServiceName).Wrapf(err, "unmarshalling SubjectPublicKeyInfo")
+	}
+
+	algOID := spki.Algorithm.Algorithm
+	params := &spki.Algorithm.Parameters
+	if oid != nil {
+		algOID = *oid
+		params = nil
+	}
+
+	sigAlg, err := SigAlgFromAlgID(algOID, params)
+	if err != nil {
+		return pkix.AlgorithmIdentifier{}, 0, oops.In(ServiceName).Wrapf(err, "resolving signature algorithm for public key type %T and OID %s", pubKey, algOID.String())
+	}
+
+	if !isHashlessSignatureAlgorithm(sigAlg) {
+		return pkix.AlgorithmIdentifier{}, 0, oops.In(ServiceName).Errorf("signature algorithm %v for public key type %T is not hashless", sigAlg, pubKey)
+	}
+
+	algID := pkix.AlgorithmIdentifier{Algorithm: algOID}
+	if oid == nil {
+		algID.Parameters = spki.Algorithm.Parameters
+	}
+	return algID, crypto.Hash(0), nil
+}
+
+func isHashlessSignatureAlgorithm(sigAlg x509.SignatureAlgorithm) bool {
+	switch sigAlg {
+	case x509.PureEd25519,
+		x509.PureEd448,
+		x509.PureMLDSA44,
+		x509.PureMLDSA65,
+		x509.PureMLDSA87,
+		x509.SLHDSAWithSHA128s,
+		x509.SLHDSAWithSHAKE128s,
+		x509.SLHDSAWithSHA128f,
+		x509.SLHDSAWithSHAKE128f,
+		x509.SLHDSAWithSHA192s,
+		x509.SLHDSAWithSHAKE192s,
+		x509.SLHDSAWithSHA192f,
+		x509.SLHDSAWithSHAKE192f,
+		x509.SLHDSAWithSHA256s,
+		x509.SLHDSAWithSHAKE256s,
+		x509.SLHDSAWithSHA256f,
+		x509.SLHDSAWithSHAKE256f:
+		return true
+	default:
+		return false
 	}
 }

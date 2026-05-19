@@ -104,18 +104,18 @@ var (
 	OidMLDSA87 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 19}
 
 	// Hash-SLH-DSA (FIPS 205)
-	OidHashSLHDSASHA2_128s  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 35}
-	OidHashSLHDSASHA2_128f  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 36}
-	OidHashSLHDSASHA2_192s  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 37}
-	OidHashSLHDSASHA2_192f  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 38}
-	OidHashSLHDSASHA2_256s  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 39}
-	OidHashSLHDSASHA2_256f  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 40}
-	OidHashSLHDSASHAKE_128s = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 41}
-	OidHashSLHDSASHAKE_128f = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 42}
-	OidHashSLHDSASHAKE_192s = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 43}
-	OidHashSLHDSASHAKE_192f = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 44}
-	OidHashSLHDSASHAKE_256s = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 45}
-	OidHashSLHDSASHAKE_256f = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 46}
+	OidHashSLHDSASHA2_128s  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 20}
+	OidHashSLHDSASHA2_128f  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 21}
+	OidHashSLHDSASHA2_192s  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 22}
+	OidHashSLHDSASHA2_192f  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 23}
+	OidHashSLHDSASHA2_256s  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 24}
+	OidHashSLHDSASHA2_256f  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 25}
+	OidHashSLHDSASHAKE_128s = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 26}
+	OidHashSLHDSASHAKE_128f = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 27}
+	OidHashSLHDSASHAKE_192s = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 28}
+	OidHashSLHDSASHAKE_192f = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 29}
+	OidHashSLHDSASHAKE_256s = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 30}
+	OidHashSLHDSASHAKE_256f = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 31}
 
 	// EdDSA (RFC 8410)
 	OidEd25519 = asn1.ObjectIdentifier{1, 3, 101, 112}
