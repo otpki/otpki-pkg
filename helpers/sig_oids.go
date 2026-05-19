@@ -391,11 +391,11 @@ func getHashlessAlgoFromSPKI(pubKey crypto.PublicKey, oid *asn1.ObjectIdentifier
 
 	sigAlg, err := SigAlgFromAlgID(algOID, params)
 	if err != nil {
-		return pkix.AlgorithmIdentifier{}, 0, oops.In(ServiceName).Errorf("unsupported public key type: %T", pubKey)
+		return pkix.AlgorithmIdentifier{}, 0, oops.In(ServiceName).Wrapf(err, "resolving signature algorithm for public key type %T and OID %s", pubKey, algOID.String())
 	}
 
 	if !isHashlessSignatureAlgorithm(sigAlg) {
-		return pkix.AlgorithmIdentifier{}, 0, oops.In(ServiceName).Errorf("unsupported public key type: %T", pubKey)
+		return pkix.AlgorithmIdentifier{}, 0, oops.In(ServiceName).Errorf("signature algorithm %v for public key type %T is not hashless", sigAlg, pubKey)
 	}
 
 	algID := pkix.AlgorithmIdentifier{Algorithm: algOID}
