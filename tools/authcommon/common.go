@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/samber/oops"
 	"golang.org/x/tools/go/packages"
 )
 
@@ -489,12 +490,12 @@ func WriteGeneratedFile(outputPath, toolName string, code []byte, verbose bool) 
 	dir := filepath.Dir(outputPath)
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
-		return fmt.Errorf("failed to create directory: %w", err)
+		return oops.Errorf("failed to create directory: %w", err)
 	}
 
 	err = os.WriteFile(outputPath, code, 0644)
 	if err != nil {
-		return fmt.Errorf("failed to write file %s: %w", outputPath, err)
+		return oops.Errorf("failed to write file %s: %w", outputPath, err)
 	}
 
 	if verbose {

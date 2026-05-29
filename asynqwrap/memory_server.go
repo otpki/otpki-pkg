@@ -39,7 +39,7 @@ func (s *memoryServer) Start(handler asynq.Handler) error {
 	s.started = true
 	s.stopPull = make(chan struct{})
 
-	for i := 0; i < s.workerCount(); i++ {
+	for range s.workerCount() {
 		s.wg.Add(1)
 		go s.workerLoop(handler)
 	}

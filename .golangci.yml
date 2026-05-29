@@ -1,0 +1,58 @@
+version: "2"
+run:
+  allow-parallel-runners: true
+linters:
+  default: none
+  enable:
+    # default
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    # additional
+    - copyloopvar
+    - dupl
+    - fatcontext
+    - goconst
+    - gocritic
+    - gocyclo
+    - gosec
+    - ineffassign
+    - intrange
+    - lll
+    - misspell
+    - modernize
+    - nakedret
+    - nilnesserr
+    - perfsprint
+    - prealloc
+    - protogetter
+    - reassign
+    - revive
+    - testifylint
+    - thelper
+    - tparallel
+    - unconvert
+    - unparam
+    - unused
+  settings:
+    revive:
+      rules:
+        - name: comment-spacings
+        - name: import-shadowing
+    ireturn:
+      allow:
+        - anon
+        - error
+        - stdlib
+        - empty
+        - generic
+formatters:
+  enable:
+    - gofmt
+    - goimports
+    - golines
+  settings:
+    golines:
+      max-len: 120

@@ -4,7 +4,6 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"errors"
 
 	"github.com/samber/oops"
 )
@@ -15,7 +14,7 @@ const (
 	encryptedDataHeaderSize           = 2 // version + nonce length
 )
 
-var ErrInvalidEncryptedDataEnvelope = errors.New("invalid encrypted data envelope")
+var ErrInvalidEncryptedDataEnvelope = oops.New("invalid encrypted data envelope")
 
 // EncryptWithDEK encrypts plaintext with AES-GCM and encodes
 // version + nonce + ciphertext into a compact binary envelope.

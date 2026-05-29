@@ -2,10 +2,11 @@ package tmpl
 
 import (
 	"bytes"
-	"fmt"
 	"strings"
 	"text/template"
 	"text/template/parse"
+
+	"github.com/samber/oops"
 )
 
 type Template struct {
@@ -17,7 +18,7 @@ type Template struct {
 func New(raw string) (*Template, error) {
 	tmpl, err := template.New("").Option("missingkey=error").Parse(raw)
 	if err != nil {
-		return nil, fmt.Errorf("invalid template: %w", err)
+		return nil, oops.Errorf("invalid template: %w", err)
 	}
 	return &Template{raw: raw, tmpl: tmpl}, nil
 }
@@ -31,7 +32,7 @@ func (t *Template) String() string {
 func (t *Template) Render(data any) (string, error) {
 	var buf bytes.Buffer
 	if err := t.tmpl.Execute(&buf, data); err != nil {
-		return "", fmt.Errorf("render failed: %w", err)
+		return "", oops.Errorf("render failed: %w", err)
 	}
 	return buf.String(), nil
 }
@@ -67,7 +68,7 @@ func (t *Template) ValidateKeys(allowed ...string) error {
 		}
 	}
 	if len(unknown) > 0 {
-		return fmt.Errorf("unknown template keys: %s; allowed: %s",
+		return oops.Errorf("unknown template keys: %s; allowed: %s",
 			strings.Join(unknown, ", "), strings.Join(allowed, ", "))
 	}
 	return nil

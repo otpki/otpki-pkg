@@ -54,7 +54,7 @@ func (b *memoryBroker) enqueuePendingRecordLocked(rec *taskRecord, now time.Time
 
 func (b *memoryBroker) getOrCreateQueueLocked(name string) *memoryQueue {
 	if name == "" {
-		name = "default"
+		name = defaultRecurringTaskQueue
 	}
 	if q := b.queues[name]; q != nil {
 		return q
@@ -115,7 +115,11 @@ func (b *memoryBroker) findTaskLocked(queue, id string) *taskRecord {
 	return nil
 }
 
-func (b *memoryBroker) listTasksByStateLocked(queue string, state asynq.TaskState, opts ...asynq.ListOption) []*asynq.TaskInfo {
+func (b *memoryBroker) listTasksByStateLocked(
+	queue string,
+	state asynq.TaskState,
+	opts ...asynq.ListOption,
+) []*asynq.TaskInfo {
 	var out []*asynq.TaskInfo
 
 	switch state {
@@ -340,7 +344,7 @@ func (b *memoryBroker) popReadyLocked(cfg asynq.Config, rrIndex *int) *taskRecor
 func (b *memoryBroker) selectQueueLocked(cfg asynq.Config, rrIndex *int) *memoryQueue {
 	queues := cfg.Queues
 	if len(queues) == 0 {
-		queues = map[string]int{"default": 1}
+		queues = map[string]int{defaultRecurringTaskQueue: 1}
 	}
 	if cfg.StrictPriority {
 		return b.selectStrictQueueLocked(queues)
@@ -388,7 +392,7 @@ func (b *memoryBroker) selectStrictQueueLocked(queues map[string]int) *memoryQue
 func (b *memoryBroker) selectWeightedQueueLocked(queues map[string]int, rrIndex *int) *memoryQueue {
 	expanded := expandWeightedQueues(queues)
 	if len(expanded) == 0 {
-		expanded = []string{"default"}
+		expanded = []string{defaultRecurringTaskQueue}
 	}
 
 	start := 0
@@ -396,7 +400,7 @@ func (b *memoryBroker) selectWeightedQueueLocked(queues map[string]int, rrIndex 
 		start = *rrIndex % len(expanded)
 	}
 
-	for i := 0; i < len(expanded); i++ {
+	for i := range expanded {
 		name := expanded[(start+i)%len(expanded)]
 		q := b.queues[name]
 		if q != nil && !q.paused && len(q.pending) > 0 {
@@ -450,7 +454,13 @@ func (b *memoryBroker) finishTaskLocked(rec *taskRecord, now time.Time) {
 	b.scheduleRecordLocked(rec, asynq.TaskStateCompleted)
 }
 
-func (b *memoryBroker) failTaskLocked(ctx context.Context, cfg asynq.Config, rec *taskRecord, err error, now time.Time) {
+func (b *memoryBroker) failTaskLocked(
+	ctx context.Context,
+	cfg asynq.Config,
+	rec *taskRecord,
+	err error,
+	now time.Time,
+) {
 	q := b.getOrCreateQueueLocked(rec.info.Queue)
 	q.processedTotal++
 	q.failedTotal++
@@ -522,7 +532,13 @@ func (b *memoryBroker) queueInfoLocked(queue string) *asynq.QueueInfo {
 		info.Aggregating += len(group.tasks)
 	}
 
-	info.Size = info.Pending + info.Active + info.Scheduled + info.Retry + info.Archived + info.Completed + info.Aggregating
+	info.Size = info.Pending +
+		info.Active +
+		info.Scheduled +
+		info.Retry +
+		info.Archived +
+		info.Completed +
+		info.Aggregating
 	if len(q.pending) > 0 {
 		info.Latency = now.Sub(q.pending[0].createdAt)
 	}

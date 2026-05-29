@@ -2,7 +2,7 @@ package asynqwrap
 
 import (
 	"crypto/sha256"
-	"fmt"
+	"encoding/hex"
 	"sort"
 	"sync"
 	"time"
@@ -137,11 +137,21 @@ func (m *periodicTaskManager) add(configs []*asynq.PeriodicTaskConfig) {
 	for _, c := range configs {
 		entryID, err := m.scheduler.Register(c.Cronspec, c.Task, c.Opts...)
 		if err != nil {
-			m.logger.Errorf("Failed to register periodic task: cronspec=%q task=%q err=%v", c.Cronspec, c.Task.Type(), err)
+			m.logger.Errorf(
+				"Failed to register periodic task: cronspec=%q task=%q err=%v",
+				c.Cronspec,
+				c.Task.Type(),
+				err,
+			)
 			continue
 		}
 		m.entries[periodicTaskConfigHash(c)] = entryID
-		m.logger.Infof("Successfully registered periodic task: cronspec=%q task=%q, entryID=%s", c.Cronspec, c.Task.Type(), entryID)
+		m.logger.Infof(
+			"Successfully registered periodic task: cronspec=%q task=%q, entryID=%s",
+			c.Cronspec,
+			c.Task.Type(),
+			entryID,
+		)
 	}
 }
 
@@ -212,5 +222,5 @@ func periodicTaskConfigHash(c *asynq.PeriodicTaskConfig) string {
 	for _, opt := range opts {
 		_, _ = h.Write([]byte(opt))
 	}
-	return fmt.Sprintf("%x", h.Sum(nil))
+	return hex.EncodeToString(h.Sum(nil))
 }

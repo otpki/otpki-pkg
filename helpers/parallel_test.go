@@ -8,6 +8,7 @@ import (
 )
 
 func TestParallelRunner(t *testing.T) {
+	t.Parallel()
 	data := []int{1, 2, 3, 4, 5, 6, 7, 8, 9}
 	results, err := helpers.ParallelEach(func(i int) ([]int, error) {
 		return []int{2 * i}, nil

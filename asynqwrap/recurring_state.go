@@ -91,12 +91,18 @@ func (s *redisRecurringStateStore) Delete(ctx context.Context, key string) error
 }
 
 func (s *redisRecurringStateStore) redisKey(key string) string {
+	if strings.Contains(s.prefix, "/") {
+		return strings.TrimSuffix(s.prefix, "/") + "/" + key
+	}
 	return s.prefix + recurringStateRedisKeyPrefix + key
 }
 
 func normalizeRedisKeyPrefix(prefix string) string {
 	if prefix == "" {
 		return ""
+	}
+	if strings.Contains(prefix, "/") {
+		return strings.TrimSuffix(prefix, "/")
 	}
 	return strings.TrimSuffix(prefix, ":") + ":"
 }

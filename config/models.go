@@ -1,31 +1,25 @@
 package config
 
 import (
-	"context"
-	"net"
-	"net/url"
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/otpki/otpki-pkg/log"
 	"github.com/samber/oops"
-	pgxUUID "github.com/vgarvardt/pgx-google-uuid/v5"
 )
 
 // Config is the root application configuration.
 type Config struct {
-	App      AppConfig        `mapstructure:"app"`
-	Log      LogConfig        `mapstructure:"log"`
-	Server   ServerConfig     `mapstructure:"server"`
-	Plugins  PluginHostConfig `mapstructure:"plugins"`
-	Database DatabaseConfig   `mapstructure:"database"`
-	Pulsar   PulsarConfig     `mapstructure:"pulsar"`
-	Valkey   ValkeyConfig     `mapstructure:"valkey"`
-	Crypto   CryptoConfig     `mapstructure:"crypto"`
-	Auth     AuthConfig       `mapstructure:"auth"`
-	OTEL     OTELConfig       `mapstructure:"otel"`
+	App        AppConfig        `mapstructure:"app"`
+	Log        LogConfig        `mapstructure:"log"`
+	Server     ServerConfig     `mapstructure:"server"`
+	Plugins    PluginHostConfig `mapstructure:"plugins"`
+	Backends   BackendsConfig   `mapstructure:"backends"`
+	StateStore StateStoreConfig `mapstructure:"statestore"`
+	PubSub     PubSubConfig     `mapstructure:"pubsub"`
+	Crypto     CryptoConfig     `mapstructure:"crypto"`
+	Auth       AuthConfig       `mapstructure:"auth"`
+	OTEL       OTELConfig       `mapstructure:"otel"`
 }
 
 func DefaultConfig() Config {
@@ -34,8 +28,10 @@ func DefaultConfig() Config {
 			IssuanceService:   true,
 			EnrollmentService: true,
 			ValidationService: true,
-			AuthService:       true,
-			Broker:            true,
+			Keyspace: KeyspaceConfig{
+				App:      "otpki",
+				TenantID: "default",
+			},
 		},
 		Log: LogConfig{
 			Level: log.DebugLevel,
@@ -46,47 +42,12 @@ func DefaultConfig() Config {
 			EnableWebUI:    true,
 		},
 		Plugins: PluginHostConfig{
-			Enabled:      true,
-			Dir:          "./plugins",
-			MigrationDir: "",
-			ReattachDir:  "", // could be /tmp/otpki-reattach-config
-			ReattachWait: 0,
+			Enabled: true,
+			Dir:     "./plugins",
 		},
-		Database: DatabaseConfig{
-			// Do not provide a default connection string because it prevents users
-			// from setting individual fields. URL takes precedence when provided.
-			Name:     "otpki",
-			User:     "otpki",
-			Password: "otpki",
-			Schema:   "otpki",
-			Host:     "localhost",
-			Port:     "5432",
-			SSLMode:  "disable",
-			Pool: PoolConfig{
-				MaxConns:          10,
-				MinConns:          1,
-				MaxConnLifetime:   time.Hour,
-				MaxConnIdleTime:   30 * time.Minute,
-				HealthCheckPeriod: time.Minute,
-			},
-		},
-		Pulsar: PulsarConfig{
-			Connection: "pulsar://localhost:6650",
-			Tenant:     "public",
-			Namespace:  "default",
-		},
-		Valkey: ValkeyConfig{
-			Enabled:     true,
-			Host:        "localhost",
-			Port:        "6379",
-			Password:    "",
-			DB:          0,
-			MaxRetries:  3,
-			PoolSize:    10,
-			KeyPrefix:   "otpki",
-			EnableTLS:   false,
-			TLSInsecure: false,
-		},
+		Backends:   DefaultBackendsConfig(),
+		StateStore: DefaultStateStoreConfig(),
+		PubSub:     DefaultPubSubConfig(),
 		Crypto: CryptoConfig{
 			EncryptionPassword: "",
 		},
@@ -109,6 +70,7 @@ func DefaultConfig() Config {
 			},
 		},
 		OTEL: OTELConfig{
+			Enabled:          true,
 			ServiceName:      "OTPKI-All",
 			ServiceVersion:   "v0.0.1",
 			CollectorAddress: "localhost:4317",
@@ -117,13 +79,81 @@ func DefaultConfig() Config {
 	}
 }
 
+type CollectorMode string
+
+const (
+	CollectorModeGRPC CollectorMode = "grpc"
+	CollectorModeHTTP CollectorMode = "http"
+)
+
+func (c *CollectorMode) UnmarshalText(text []byte) error {
+	value := CollectorMode(text)
+
+	switch value {
+	case CollectorModeGRPC, CollectorModeHTTP:
+		*c = value
+		return nil
+	default:
+		return oops.Errorf("invalid collector mode %q", string(text))
+	}
+}
+
+type RedisType string
+
+const (
+	RedisTypeNode    RedisType = "node"
+	RedisTypeCluster RedisType = "cluster"
+)
+
+func (r *RedisType) UnmarshalText(text []byte) error {
+	value := RedisType(text)
+
+	switch value {
+	case RedisTypeNode, RedisTypeCluster:
+		*r = value
+		return nil
+	default:
+		return oops.Errorf("invalid state provider %q", string(text))
+	}
+}
+
 // AppConfig controls which application services are enabled.
 type AppConfig struct {
-	IssuanceService   bool `mapstructure:"issuance_service"`
-	EnrollmentService bool `mapstructure:"enrollment_service"`
-	ValidationService bool `mapstructure:"validation_service"`
-	AuthService       bool `mapstructure:"auth_service"`
-	Broker            bool `mapstructure:"broker"` // TODO: move to separate broker config when we have more than 1
+	IssuanceService   bool           `mapstructure:"issuance_service"`
+	EnrollmentService bool           `mapstructure:"enrollment_service"`
+	ValidationService bool           `mapstructure:"validation_service"`
+	Keyspace          KeyspaceConfig `mapstructure:"keyspace"`
+}
+
+// KeyspaceConfig is used to create cache keys
+type KeyspaceConfig struct {
+	App       string `mapstructure:"app"`
+	Env       string `mapstructure:"env"`
+	TestRunID string `mapstructure:"test_run_id"`
+	TenantID  string `mapstructure:"tenant_id"`
+}
+
+func (k KeyspaceConfig) Prefix() string {
+	parts := []string{k.App}
+
+	if k.TestRunID != "" {
+		parts = append(parts, "test", k.TestRunID)
+	} else if k.Env != "" {
+		parts = append(parts, k.Env)
+	}
+
+	if k.TenantID != "" {
+		parts = append(parts, "tenant", k.TenantID)
+	} else {
+		parts = append(parts, "tenant", "default")
+	}
+
+	return strings.Join(parts, "/")
+}
+
+func (k KeyspaceConfig) Key(parts ...string) string {
+	all := append([]string{k.Prefix()}, parts...)
+	return strings.Join(all, "/")
 }
 
 type LogConfig struct {
@@ -137,32 +167,22 @@ type ServerConfig struct {
 }
 
 type PluginHostConfig struct {
-	Enabled      bool          `mapstructure:"enabled"`
-	Dir          string        `mapstructure:"dir"`
-	MigrationDir string        `mapstructure:"migration_dir"`
-	ReattachDir  string        `mapstructure:"reattach_dir"`
-	ReattachWait time.Duration `mapstructure:"reattach_wait"`
+	Enabled             bool                           `mapstructure:"enabled"`
+	Dir                 string                         `mapstructure:"dir"`
+	ReattachDir         string                         `mapstructure:"reattach_dir"` // could be /tmp/otpki-reattach-config
+	ReattachWait        time.Duration                  `mapstructure:"reattach_wait"`
+	ExportMigrations    bool                           `mapstructure:"export_migrations"`
+	MigrationDir        string                         `mapstructure:"migration_dir"`
+	MigrationConfigMaps MigrationConfigMapExportConfig `mapstructure:"migration_config_maps"`
 }
 
-type PulsarConfig struct {
-	Connection string `mapstructure:"connection"`
-	Tenant     string `mapstructure:"tenant"`
-	Namespace  string `mapstructure:"namespace"`
-}
-
-// ValkeyConfig configures Valkey/Redis-backed caching.
-// See: https://github.com/redis/go-redis
-type ValkeyConfig struct {
-	Enabled     bool   `mapstructure:"enabled"`
-	Host        string `mapstructure:"host"`
-	Port        string `mapstructure:"port"`
-	Password    string `mapstructure:"password"`
-	DB          int    `mapstructure:"db"`
-	MaxRetries  int    `mapstructure:"max_retries"`
-	PoolSize    int    `mapstructure:"pool_size"`
-	KeyPrefix   string `mapstructure:"key_prefix"` // Prefix for all cache keys, e.g. "otpki:", see pkg/keys
-	EnableTLS   bool   `mapstructure:"enable_tls"`
-	TLSInsecure bool   `mapstructure:"tls_insecure"`
+type MigrationConfigMapExportConfig struct {
+	Enabled    bool   `mapstructure:"enabled"`
+	Namespace  string `mapstructure:"namespace"`   // Namespace defaults to the pod namespace if empty.
+	Instance   string `mapstructure:"instance"`    // Instance is used as a label selector value, usually the OmniTrustPKI name.
+	Prefix     string `mapstructure:"prefix"`      // Prefix defaults to "<instance>-migrations" if empty.
+	SourceHash string `mapstructure:"source_hash"` // SourceHash labels generated migration ConfigMaps so the operator can
+	// distinguish the current app/plugin migration set from stale ones.
 }
 
 type CryptoConfig struct {
@@ -192,130 +212,9 @@ type AuthDefaultProvider struct {
 }
 
 type OTELConfig struct {
+	Enabled          bool          `mapstructure:"enabled"`
 	ServiceName      string        `mapstructure:"service_name"`
 	ServiceVersion   string        `mapstructure:"service_version"`
 	CollectorAddress string        `mapstructure:"collector_address"`
 	CollectorMode    CollectorMode `mapstructure:"collector_mode"`
-}
-
-type CollectorMode string
-
-const (
-	CollectorModeGRPC CollectorMode = "grpc"
-	CollectorModeHTTP CollectorMode = "http"
-)
-
-func (c *CollectorMode) UnmarshalText(text []byte) error {
-	value := CollectorMode(text)
-
-	switch value {
-	case CollectorModeGRPC, CollectorModeHTTP:
-		*c = value
-		return nil
-	default:
-		return oops.Errorf("invalid collector mode %q", string(text))
-	}
-}
-
-type DatabaseConfig struct {
-	URL string `mapstructure:"url"`
-
-	Host     string `mapstructure:"host"`
-	Port     string `mapstructure:"port"`
-	Name     string `mapstructure:"name"`
-	User     string `mapstructure:"user"`
-	Password string `mapstructure:"password"`
-	SSLMode  string `mapstructure:"ssl_mode"`
-	Schema   string `mapstructure:"schema"`
-
-	Pool PoolConfig `mapstructure:"pool"`
-}
-
-type PoolConfig struct {
-	MaxConns          int32         `mapstructure:"max_conns"`
-	MinConns          int32         `mapstructure:"min_conns"`
-	MaxConnLifetime   time.Duration `mapstructure:"max_conn_lifetime"`
-	MaxConnIdleTime   time.Duration `mapstructure:"max_conn_idle_time"`
-	HealthCheckPeriod time.Duration `mapstructure:"health_check_period"`
-}
-
-func (c DatabaseConfig) PoolConfig() (*pgxpool.Config, error) {
-	dsn := c.URL
-	if dsn == "" {
-		dsn = c.connectionString()
-	}
-
-	pgxCfg, err := pgxpool.ParseConfig(dsn)
-	if err != nil {
-		return nil, err
-	}
-
-	searchPath := c.searchPath()
-
-	pgxCfg.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
-		pgxUUID.Register(conn.TypeMap())
-
-		_, err := conn.Exec(ctx, "set search_path to "+strings.Join(searchPath, ", "))
-		return err
-	}
-
-	if pgxCfg.ConnConfig.RuntimeParams == nil {
-		pgxCfg.ConnConfig.RuntimeParams = map[string]string{}
-	}
-
-	pgxCfg.ConnConfig.RuntimeParams["search_path"] = strings.Join(searchPath, ",")
-
-	applyPoolConfig(pgxCfg, c.Pool)
-
-	return pgxCfg, nil
-}
-
-func (c DatabaseConfig) connectionString() string {
-	q := url.Values{}
-	if c.SSLMode != "" {
-		q.Set("sslmode", c.SSLMode)
-	}
-
-	u := &url.URL{
-		Scheme: "postgres",
-		User:   url.UserPassword(c.User, c.Password),
-		Host:   net.JoinHostPort(c.Host, c.Port),
-		Path:   "/" + c.Name,
-	}
-
-	if encoded := q.Encode(); encoded != "" {
-		u.RawQuery = encoded
-	}
-
-	return u.String()
-}
-
-func (c DatabaseConfig) searchPath() []string {
-	if c.Schema == "" {
-		return []string{"public"}
-	}
-
-	return []string{c.Schema, "public"}
-}
-
-func applyPoolConfig(cfg *pgxpool.Config, pool PoolConfig) {
-	if pool.MaxConns > 0 {
-		cfg.MaxConns = pool.MaxConns
-	}
-
-	if pool.MinConns > 0 {
-		cfg.MinConns = pool.MinConns
-	}
-
-	if pool.MaxConnLifetime > 0 {
-		cfg.MaxConnLifetime = pool.MaxConnLifetime
-	}
-
-	if pool.MaxConnIdleTime > 0 {
-		cfg.MaxConnIdleTime = pool.MaxConnIdleTime
-	}
-
-	if pool.HealthCheckPeriod > 0 {
-		cfg.HealthCheckPeriod = pool.HealthCheckPeriod
-	}
 }

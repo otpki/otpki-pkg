@@ -16,19 +16,74 @@ const (
 	EnvPrefix     = "OTPKI"
 	EnvConfigFile = EnvPrefix + "_CONFIG_FILE"
 	EnvConfigType = EnvPrefix + "_CONFIG_TYPE" // optional fallback for extensionless files
+
+	DefaultConfigFile = "config.yaml"
 )
 
+type LoadOptions struct {
+	// Values are arbitrary in-memory config values, usually from the operator CRD.
+	Values map[string]any
+
+	// Env contains env-style overrides, e.g. OTPKI_APP_ISSUANCESERVICE=true.
+	Env map[string]string
+
+	// ReadProcessEnv enables reading os.Environ().
+	ReadProcessEnv bool
+
+	// ReadConfigFile enables reading a config file from env/config options.
+	ReadConfigFile bool
+
+	// ConfigFile optionally overrides OTPKI_CONFIG_FILE.
+	ConfigFile string
+
+	// ConfigType optionally overrides OTPKI_CONFIG_TYPE.
+	ConfigType string
+}
+
 func LoadConfig() (Config, error) {
+	return LoadConfigWithOptions(LoadOptions{
+		ReadProcessEnv: true,
+		ReadConfigFile: true,
+	})
+}
+
+func LoadConfigFromMap(values map[string]any) (Config, error) {
+	return LoadConfigWithOptions(LoadOptions{
+		Values: values,
+	})
+}
+
+func LoadConfigWithOptions(opts LoadOptions) (Config, error) {
 	v := viper.New()
 
 	v.SetEnvPrefix(EnvPrefix)
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	v.AutomaticEnv()
 
 	setDefaultsFromStruct(v, "", DefaultConfig())
 
-	if err := readConfigFileIfProvided(v); err != nil {
-		return Config{}, err
+	if opts.Values != nil {
+		if err := mergeConfigMap(v, opts.Values); err != nil {
+			return Config{}, err
+		}
+	}
+
+	for name, value := range opts.Env {
+		configKey, ok := envNameToConfigKey(name)
+		if !ok {
+			continue
+		}
+		v.Set(configKey, value)
+	}
+
+	if opts.ReadProcessEnv {
+		v.AutomaticEnv()
+		bindDynamicPluginEnv(v)
+	}
+
+	if opts.ReadConfigFile {
+		if err := readConfigFileWithOptions(v, opts); err != nil {
+			return Config{}, err
+		}
 	}
 
 	var cfg Config
@@ -50,21 +105,76 @@ func LoadConfig() (Config, error) {
 	return cfg, nil
 }
 
-func readConfigFileIfProvided(v *viper.Viper) error {
-	configFile := strings.TrimSpace(os.Getenv(EnvConfigFile))
+func mergeConfigMap(v *viper.Viper, values map[string]any) error {
+	flat := map[string]any{}
+	flattenMap("", values, flat)
+
+	for key, value := range flat {
+		v.Set(key, value)
+	}
+
+	return nil
+}
+
+func flattenMap(prefix string, in map[string]any, out map[string]any) {
+	for key, value := range in {
+		fullKey := key
+		if prefix != "" {
+			fullKey = prefix + "." + key
+		}
+
+		if nested, ok := value.(map[string]any); ok {
+			flattenMap(fullKey, nested, out)
+			continue
+		}
+
+		out[fullKey] = value
+	}
+}
+
+func envNameToConfigKey(name string) (string, bool) {
+	if !strings.HasPrefix(name, EnvPrefix+"_") {
+		return "", false
+	}
+
+	key := strings.TrimPrefix(name, EnvPrefix+"_")
+	if key == "" {
+		return "", false
+	}
+
+	key = strings.ToLower(key)
+	key = strings.ReplaceAll(key, "_", ".")
+	return key, true
+}
+
+func readConfigFileWithOptions(v *viper.Viper, opts LoadOptions) error {
+	configFile := strings.TrimSpace(opts.ConfigFile)
 	if configFile == "" {
-		return nil
+		configFile = strings.TrimSpace(os.Getenv(EnvConfigFile))
+	}
+	if configFile == "" {
+		configFile = DefaultConfigFile
+	}
+
+	if _, err := os.Stat(configFile); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+
+		return oops.Errorf("failed to stat config file %q: %w", configFile, err)
 	}
 
 	v.SetConfigFile(configFile)
 
-	// needed only for extensionless config files (.bashrc, for example)
 	if filepath.Ext(configFile) == "" {
-		configType := strings.TrimSpace(os.Getenv(EnvConfigType))
+		configType := strings.TrimSpace(opts.ConfigType)
+		if configType == "" {
+			configType = strings.TrimSpace(os.Getenv(EnvConfigType))
+		}
 		if configType == "" {
 			return oops.Errorf(
-				"%s is set to an extensionless file; set %s to yaml, json, toml, hcl, ini, env, or properties",
-				EnvConfigFile,
+				"%s is extensionless; set %s to yaml, json, toml, hcl, ini, env, or properties",
+				configFile,
 				EnvConfigType,
 			)
 		}

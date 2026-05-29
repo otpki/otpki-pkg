@@ -8,6 +8,10 @@ import (
 	"github.com/otpki/otpki-pkg/helpers"
 )
 
+// Even though pubstate.Store can provide an in-memory implementation,
+// some consumers may still want the raw go-like state store. this is especially
+// useful for creating a local state store when the application wide one is remote
+
 type MemoryStateStore[K any, V any] struct {
 	sessions  sync.Map // map[string]*memorySession[V]
 	ticker    *time.Ticker
@@ -28,7 +32,11 @@ func NewMemoryStateStore[V any](reaperInterval time.Duration, transform *Transfo
 	return NewMemoryStateStoreWithKey[string, V](reaperInterval, generateKey, transform)
 }
 
-func NewMemoryStateStoreWithKey[K any, V any](reaperInterval time.Duration, newKey func() K, transform *Transform[V]) *MemoryStateStore[K, V] {
+func NewMemoryStateStoreWithKey[K any, V any](
+	reaperInterval time.Duration,
+	newKey func() K,
+	transform *Transform[V],
+) *MemoryStateStore[K, V] {
 	sm := &MemoryStateStore[K, V]{
 		sessions:  sync.Map{},
 		ticker:    time.NewTicker(reaperInterval),

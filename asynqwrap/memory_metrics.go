@@ -20,31 +20,31 @@ func newMemoryCollector(b *memoryBroker) prometheus.Collector {
 		sizeDesc: prometheus.NewDesc(
 			"asynqwrap_queue_tasks",
 			"Task counts by queue and state.",
-			[]string{"backend", "queue", "state"},
+			[]string{metricsLabelBackend, metricsLabelQueue, metricsLabelState},
 			nil,
 		),
 		latencyDesc: prometheus.NewDesc(
 			"asynqwrap_queue_latency_seconds",
 			"Oldest pending task latency by queue.",
-			[]string{"backend", "queue"},
+			[]string{metricsLabelBackend, metricsLabelQueue},
 			nil,
 		),
 		pausedDesc: prometheus.NewDesc(
 			"asynqwrap_queue_paused",
 			"Queue paused state.",
-			[]string{"backend", "queue"},
+			[]string{metricsLabelBackend, metricsLabelQueue},
 			nil,
 		),
 		processedDesc: prometheus.NewDesc(
 			"asynqwrap_queue_processed_total",
 			"Processed task total by queue.",
-			[]string{"backend", "queue"},
+			[]string{metricsLabelBackend, metricsLabelQueue},
 			nil,
 		),
 		failedDesc: prometheus.NewDesc(
 			"asynqwrap_queue_failed_total",
 			"Failed task total by queue.",
-			[]string{"backend", "queue"},
+			[]string{metricsLabelBackend, metricsLabelQueue},
 			nil,
 		),
 	}

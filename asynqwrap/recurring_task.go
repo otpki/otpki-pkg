@@ -56,7 +56,12 @@ func DeleteRecurringTask[K comparable](ctx context.Context, inspector Inspector,
 // The initial insert enqueues the task immediately. Subsequent upserts enqueue
 // the next run at now + interval. After a successful run, the middleware
 // schedules the next run using the same interval.
-func UpsertRecurringTask[K comparable](ctx context.Context, client Client, inspector Inspector, spec RecurringTaskSpec[K]) (*asynq.TaskInfo, error) {
+func UpsertRecurringTask[K comparable](
+	ctx context.Context,
+	client Client,
+	inspector Inspector,
+	spec RecurringTaskSpec[K],
+) (*asynq.TaskInfo, error) {
 	if client == nil {
 		return nil, oops.Errorf("client cannot be nil")
 	}

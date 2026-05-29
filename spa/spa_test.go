@@ -10,6 +10,7 @@ import (
 )
 
 func TestHandlerWithConfigCachesImmutableAssets(t *testing.T) {
+	t.Parallel()
 	handler, err := HandlerWithConfig(fstest.MapFS{
 		"index.html": {
 			Data: []byte("<html>ok</html>"),
@@ -35,6 +36,7 @@ func TestHandlerWithConfigCachesImmutableAssets(t *testing.T) {
 }
 
 func TestHandlerWithConfigFallbackDoesNotUseImmutableCacheControl(t *testing.T) {
+	t.Parallel()
 	handler, err := HandlerWithConfig(fstest.MapFS{
 		"index.html": {
 			Data: []byte("<html>ok</html>"),
@@ -59,6 +61,7 @@ func TestHandlerWithConfigFallbackDoesNotUseImmutableCacheControl(t *testing.T) 
 }
 
 func TestHandlerWithConfigReturnsNotModifiedOnETagMatch(t *testing.T) {
+	t.Parallel()
 	handler, err := HandlerWithConfig(fstest.MapFS{
 		"index.html": {
 			Data: []byte("<html>ok</html>"),
@@ -89,6 +92,7 @@ func TestHandlerWithConfigReturnsNotModifiedOnETagMatch(t *testing.T) {
 }
 
 func TestHandlerWithConfigSupportsHead(t *testing.T) {
+	t.Parallel()
 	handler, err := HandlerWithConfig(fstest.MapFS{
 		"index.html": {
 			Data: []byte("<html>ok</html>"),

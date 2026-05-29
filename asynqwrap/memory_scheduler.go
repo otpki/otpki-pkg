@@ -1,7 +1,6 @@
 package asynqwrap
 
 import (
-	"errors"
 	"strconv"
 	"sync"
 	"time"
@@ -53,7 +52,7 @@ func (s *memoryScheduler) Register(spec string, task *asynq.Task, opts ...asynq.
 	defer s.mu.Unlock()
 
 	if s.shutdown {
-		return "", errors.New("scheduler is shut down")
+		return "", oops.New("scheduler is shut down")
 	}
 
 	id, err := s.cron.AddFunc(spec, func() {
@@ -73,7 +72,7 @@ func (s *memoryScheduler) Start() error {
 	defer s.mu.Unlock()
 
 	if s.shutdown {
-		return errors.New("scheduler is shut down")
+		return oops.New("scheduler is shut down")
 	}
 	if s.started {
 		return nil

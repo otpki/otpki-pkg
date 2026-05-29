@@ -30,7 +30,6 @@ type Store[K any, V any] interface {
 	PeekMultiple(ctx context.Context, keys []K) ([]V, error)
 	// Delete will destroy state and remove it from the store.
 	Delete(ctx context.Context, key K) error
-	Shutdown()
 }
 
 type Transform[V any] struct {

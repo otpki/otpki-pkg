@@ -58,7 +58,7 @@ func newTaskRecord(task *asynq.Task, cfg taskConfig, now time.Time) *taskRecord 
 
 	queue := cfg.queue
 	if queue == "" {
-		queue = "default"
+		queue = defaultRecurringTaskQueue
 	}
 
 	id := cfg.taskID
@@ -100,7 +100,7 @@ func normalizeConfig(cfg asynq.Config) asynq.Config {
 		cfg.Concurrency = 1
 	}
 	if len(cfg.Queues) == 0 {
-		cfg.Queues = map[string]int{"default": 1}
+		cfg.Queues = map[string]int{defaultRecurringTaskQueue: 1}
 	}
 	return cfg
 }

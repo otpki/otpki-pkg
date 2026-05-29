@@ -32,6 +32,7 @@ func setTaskHeaders(task *asynq.Task, headers map[string]string) {
 		return
 	}
 
+	//nolint:gosec // Required to set unexported asynq.Task headers via reflection.
 	reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem().Set(reflect.ValueOf(headers))
 }
 
@@ -50,6 +51,7 @@ func taskOptions(task *asynq.Task) []asynq.Option {
 		return nil
 	}
 
+	//nolint:gosec // Required to read unexported asynq.Task options via reflection.
 	optsValue := reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem()
 	if optsValue.IsNil() {
 		return nil

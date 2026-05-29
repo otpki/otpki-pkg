@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/hibiken/asynq"
+	"github.com/otpki/otpki-pkg/config"
 	"github.com/redis/go-redis/v9"
 	"github.com/samber/oops"
 )
@@ -30,21 +31,24 @@ const (
 	ModeRedis Mode = "redis"
 	// ModeMemory uses the in-process memory backend.
 	ModeMemory Mode = "memory"
+	// ModeSpfy uses Spfy components-contrib state and pub/sub components.
+	// State is the durable source of truth, pub/sub is used as a wake-up signal.
+	ModeSpfy Mode = "spfy"
 )
 
 // Config selects the backend and, for Redis mode, how Redis is provided.
 type Config struct {
 	// Mode chooses the backend implementation.
 	Mode Mode
+	// RuntimeConfig provides the app keyspace used to namespace asynqwrap-owned
+	// Redis keys, Spfy state keys, and Spfy pub/sub topics.
+	RuntimeConfig config.Config
 	// Redis provides asynq connection options when the wrapper should create Redis clients itself.
 	Redis asynq.RedisConnOpt
 	// RedisClient reuses an existing go-redis client or pool for Redis mode.
 	RedisClient redis.UniversalClient
-	// RedisKeyPrefix prefixes asynqwrap-owned Redis keys, such as recurring task metadata.
-	//
-	// This does not change upstream asynq queue keys. Use it when multiple tenants
-	// share the same Redis database and this wrapper's internal keys need namespacing.
-	RedisKeyPrefix string
+
+	Spfy SpfyConfig
 }
 
 // Client enqueues tasks for immediate or future execution.
@@ -192,32 +196,29 @@ type Broker interface {
 func New(cfg Config) (Broker, error) {
 	switch cfg.Mode {
 	case "", ModeRedis:
+		redisKeyPrefix := prefixedStatePath(cfg.RuntimeConfig, "recurring-state")
 		if cfg.RedisClient != nil {
-			return newRedisBrokerFromClient(cfg.RedisClient, cfg.RedisKeyPrefix), nil
+			return newRedisBrokerFromClient(cfg.RedisClient, redisKeyPrefix), nil
 		}
 		if cfg.Redis == nil {
 			return nil, oops.Errorf("redis mode requires Redis connection options")
 		}
-		return newRedisBroker(cfg.Redis, cfg.RedisKeyPrefix), nil
+		return newRedisBroker(cfg.Redis, redisKeyPrefix), nil
 	case ModeMemory:
 		return newMemoryBroker(), nil
+	case ModeSpfy:
+		return newSpfyBroker(cfg)
 	default:
 		return nil, oops.Errorf("unsupported asynq mode %q", cfg.Mode)
 	}
 }
 
 // NewFromRedisClient creates a Redis-backed broker from an existing go-redis client.
-func NewFromRedisClient(client redis.UniversalClient) (Broker, error) {
-	return NewFromRedisClientWithPrefix(client, "")
-}
-
-// NewFromRedisClientWithPrefix creates a Redis-backed broker from an existing
-// go-redis client and applies the provided prefix to asynqwrap-owned Redis keys.
-func NewFromRedisClientWithPrefix(client redis.UniversalClient, redisKeyPrefix string) (Broker, error) {
+func NewFromRedisClient(client redis.UniversalClient, runtimeCfg config.Config) (Broker, error) {
 	if client == nil {
 		return nil, oops.Errorf("redis client is nil")
 	}
-	return newRedisBrokerFromClient(client, redisKeyPrefix), nil
+	return newRedisBrokerFromClient(client, prefixedStatePath(runtimeCfg, "recurring-state")), nil
 }
 
 // NewPeriodicTaskManager creates a periodic task manager. It mirrors the

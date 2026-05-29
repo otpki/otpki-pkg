@@ -391,3 +391,5 @@ dist/
 # Some specific files or folders that should not be ignored
 !log/
 *.db
+
+.tool/

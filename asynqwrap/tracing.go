@@ -2,7 +2,6 @@ package asynqwrap
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/google/uuid"
@@ -96,7 +95,6 @@ func WithTracingSchedulerOpts(opts *asynq.SchedulerOpts, cfg TraceConfig) *asynq
 
 	out.PreEnqueueFunc = state.preEnqueue
 	out.PostEnqueueFunc = state.postEnqueue
-	out.EnqueueErrorHandler = nil
 	return &out
 }
 
@@ -111,7 +109,11 @@ type schedulerTraceState struct {
 }
 
 func (s *schedulerTraceState) preEnqueue(task *asynq.Task, opts []asynq.Option) {
-	ctx, span := s.cfg.Tracer.Start(context.Background(), s.cfg.ScheduledSpanName(task), trace.WithSpanKind(trace.SpanKindProducer))
+	ctx, span := s.cfg.Tracer.Start(
+		context.Background(),
+		s.cfg.ScheduledSpanName(task),
+		trace.WithSpanKind(trace.SpanKindProducer),
+	)
 
 	headers := ensureTaskHeaders(task)
 	attemptID := uuid.NewString()
@@ -203,17 +205,17 @@ func (c TraceConfig) withDefaults() TraceConfig {
 	}
 	if c.ProducerSpanName == nil {
 		c.ProducerSpanName = func(task *asynq.Task) string {
-			return fmt.Sprintf("asynq enqueue %s", task.Type())
+			return "asynq enqueue " + task.Type()
 		}
 	}
 	if c.ConsumerSpanName == nil {
 		c.ConsumerSpanName = func(task *asynq.Task) string {
-			return fmt.Sprintf("asynq process %s", task.Type())
+			return "asynq process " + task.Type()
 		}
 	}
 	if c.ScheduledSpanName == nil {
 		c.ScheduledSpanName = func(task *asynq.Task) string {
-			return fmt.Sprintf("asynq schedule %s", task.Type())
+			return "asynq schedule " + task.Type()
 		}
 	}
 	return c

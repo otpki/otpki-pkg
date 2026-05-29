@@ -823,7 +823,7 @@ mux := asynq.NewServeMux()
 mux.HandleFunc("order:submit", func(ctx context.Context, task *asynq.Task) error {
 	span := trace.SpanFromContext(ctx)
 	if !span.SpanContext().IsValid() {
-		return errors.New("missing propagated trace context")
+		return oops.New("missing propagated trace context")
 	}
 	return nil
 })

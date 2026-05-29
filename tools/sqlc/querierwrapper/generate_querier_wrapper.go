@@ -5,6 +5,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+
+	"github.com/samber/oops"
 )
 
 var debugLogging = os.Getenv("SQLC_DEBUG") == "true"
@@ -52,11 +54,11 @@ func writeToFile(targetPath string, content string) error {
 	dir := filepath.Dir(targetPath)
 
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("failed to create directory: %w", err)
+		return oops.Errorf("failed to create directory: %w", err)
 	}
 
 	if err := os.WriteFile(targetPath, []byte(content), 0644); err != nil {
-		return fmt.Errorf("failed to write file: %w", err)
+		return oops.Errorf("failed to write file: %w", err)
 	}
 
 	return nil

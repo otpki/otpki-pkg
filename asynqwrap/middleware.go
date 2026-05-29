@@ -2,6 +2,7 @@ package asynqwrap
 
 import (
 	"context"
+	"slices"
 	"sync"
 
 	"github.com/hibiken/asynq"
@@ -29,7 +30,11 @@ func (c *clientAdapter) Enqueue(task *asynq.Task, opts ...asynq.Option) (*asynq.
 	return c.EnqueueContext(context.Background(), task, opts...)
 }
 
-func (c *clientAdapter) EnqueueContext(ctx context.Context, task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error) {
+func (c *clientAdapter) EnqueueContext(
+	ctx context.Context,
+	task *asynq.Task,
+	opts ...asynq.Option,
+) (*asynq.TaskInfo, error) {
 	return c.enqueue(ctx, task, opts...)
 }
 
@@ -53,8 +58,8 @@ func (c *clientAdapter) enqueue(ctx context.Context, task *asynq.Task, opts ...a
 	}
 
 	middleware := c.snapshot()
-	for i := len(middleware) - 1; i >= 0; i-- {
-		next = middleware[i](next)
+	for _, v := range slices.Backward(middleware) {
+		next = v(next)
 	}
 
 	return next(ctx, task, opts...)
@@ -115,8 +120,8 @@ func (s *serverAdapter) Shutdown() { s.backend.Shutdown() }
 func (s *serverAdapter) wrap(handler asynq.Handler) asynq.Handler {
 	wrapped := handler
 	middleware := s.snapshot()
-	for i := len(middleware) - 1; i >= 0; i-- {
-		wrapped = middleware[i](wrapped)
+	for _, v := range slices.Backward(middleware) {
+		wrapped = v(wrapped)
 	}
 	return wrapped
 }

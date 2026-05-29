@@ -9,6 +9,7 @@ import (
 )
 
 func TestAddOrUpdateExt(t *testing.T) {
+	t.Parallel()
 	exts := []pkix.Extension{}
 	exts = append(exts, pkix.Extension{Id: asn1.ObjectIdentifier{1, 1, 1}, Value: []byte("hello")})
 	exts = helpers.AddOrUpdateExtension(exts, asn1.ObjectIdentifier{2, 2, 2}, []byte("newvalue"))

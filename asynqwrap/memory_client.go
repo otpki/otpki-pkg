@@ -2,10 +2,10 @@ package asynqwrap
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/hibiken/asynq"
+	"github.com/samber/oops"
 )
 
 type memoryClient struct {
@@ -16,7 +16,11 @@ func (c *memoryClient) Enqueue(task *asynq.Task, opts ...asynq.Option) (*asynq.T
 	return c.EnqueueContext(context.Background(), task, opts...)
 }
 
-func (c *memoryClient) EnqueueContext(ctx context.Context, task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error) {
+func (c *memoryClient) EnqueueContext(
+	ctx context.Context,
+	task *asynq.Task,
+	opts ...asynq.Option,
+) (*asynq.TaskInfo, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -31,7 +35,7 @@ func (c *memoryClient) EnqueueContext(ctx context.Context, task *asynq.Task, opt
 	defer b.mu.Unlock()
 
 	if b.closed {
-		return nil, errors.New("memory broker is closed")
+		return nil, oops.New("memory broker is closed")
 	}
 
 	b.expireLocked(now)

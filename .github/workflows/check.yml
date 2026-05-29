@@ -11,13 +11,36 @@ on:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: BIGBOY
     env:
       AWS_ARTIFACT_BUCKET_NAME: ${{ vars.AWS_ARTIFACT_BUCKET_NAME }}
       AWS_REGION: ${{ vars.AWS_REGION }}
       AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+      GOPRIVATE: github.com/otpki/*
 
     steps:
+    - name: Generate GitHub App token
+      id: generate_token
+      uses: actions/create-github-app-token@v2
+      with:
+        app-id: ${{ secrets.GH_APP_ID }}
+        private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+        owner: otpki
+        repositories: |
+          ${{ github.event.repository.name }}
+          otpki
+          otpki-pkcs11-proxy
+          otpki-protobuf-private
+          otpki-protobuf
+          otpki-pkg
+          scep
+
+    - name: Configure git for private GitHub deps
+      run: |
+        git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
+      env:
+        GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
+
     - name: Checkout code
       uses: actions/checkout@v6
 
@@ -30,13 +53,15 @@ jobs:
     - name: Setup IOGO
       uses: otpki/setup-iogo@v1
       with:
-        go-version: 1.26.1
+        go-version: 1.26.4
         bucket-name: ${{ env.AWS_ARTIFACT_BUCKET_NAME }}
         aws-region: ${{ env.AWS_REGION }}
 
-    - name: Run go fmt
-      run: |
-        go fmt ./...
+    - name: Setup Just
+      uses: extractions/setup-just@v3
+
+    - name: Run just check
+      run: just check
 
     - name: Check for file changes
       run: |
@@ -47,6 +72,3 @@ jobs:
         else
           echo "No changes needed."
         fi
-
-    - name: Run go test
-      run: go test ./...

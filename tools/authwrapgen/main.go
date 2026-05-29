@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/otpki/otpki-pkg/tools/authcommon"
+	"github.com/samber/oops"
 	"golang.org/x/tools/go/packages"
 )
 
@@ -60,7 +61,7 @@ func generateForPackage(pkgWithAuth authcommon.PackageWithAuth) error {
 
 	code, err := generate(pkgWithAuth)
 	if err != nil {
-		return fmt.Errorf("failed to generate code for %s: %w", pkgWithAuth.Path, err)
+		return oops.Errorf("failed to generate code for %s: %w", pkgWithAuth.Path, err)
 	}
 
 	// put output in the first directory of the package
@@ -103,7 +104,7 @@ func generate(pkgWithAuth authcommon.PackageWithAuth) ([]byte, error) {
 	// gofmt
 	src, err := format.Source(b.Bytes())
 	if err != nil {
-		return b.Bytes(), fmt.Errorf("gofmt failed: %w", err)
+		return b.Bytes(), oops.Errorf("gofmt failed: %w", err)
 	}
 	return src, nil
 }

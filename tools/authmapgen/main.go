@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/otpki/otpki-pkg/tools/authcommon"
+	"github.com/samber/oops"
 )
 
 var (
@@ -58,7 +59,7 @@ func generateConsolidatedAuthMap(services []authcommon.ServiceInfo, outputPath s
 
 	code, err := generateConsolidatedAuthMapCode(services)
 	if err != nil {
-		return fmt.Errorf("failed to generate consolidated auth map code: %w", err)
+		return oops.Errorf("failed to generate consolidated auth map code: %w", err)
 	}
 
 	return authcommon.WriteGeneratedFile(outputPath, "consolidated auth map", code, *verbose)

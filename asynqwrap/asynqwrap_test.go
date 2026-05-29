@@ -1,3 +1,4 @@
+//nolint:errcheck,goconst
 package asynqwrap
 
 import (
@@ -16,7 +17,9 @@ import (
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/hibiken/asynq"
+	"github.com/otpki/otpki-pkg/config"
 	"github.com/redis/go-redis/v9"
+	"github.com/samber/oops"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/attribute"
@@ -228,7 +231,13 @@ func TestEnqueueAtHelper(t *testing.T) {
 	require.NoError(t, err)
 	select {
 	case got := <-done:
-		assert.False(t, got.Before(at.Add(-50*time.Millisecond)), "helper task ran too early: got=%v want-after=%v", got, at)
+		assert.False(
+			t,
+			got.Before(at.Add(-50*time.Millisecond)),
+			"helper task ran too early: got=%v want-after=%v",
+			got,
+			at,
+		)
 	case <-time.After(2 * time.Second):
 		t.Fatal("helper at task was not processed")
 	}
@@ -249,7 +258,7 @@ func TestMemoryRetry(t *testing.T) {
 	done := make(chan struct{}, 1)
 	if err := srv.Start(asynq.HandlerFunc(func(ctx context.Context, task *asynq.Task) error {
 		if attempts.Add(1) < 3 {
-			return errors.New("boom")
+			return oops.New("boom")
 		}
 		done <- struct{}{}
 		return nil
@@ -283,7 +292,7 @@ func TestInspectorCanInspectFailedTasks(t *testing.T) {
 	failed := make(chan struct{}, 1)
 	require.NoError(t, srv.Start(asynq.HandlerFunc(func(ctx context.Context, task *asynq.Task) error {
 		failed <- struct{}{}
-		return errors.New("handler exploded")
+		return oops.New("handler exploded")
 	})))
 
 	info, err := broker.Client().Enqueue(asynq.NewTask("failing", nil), asynq.MaxRetry(0))
@@ -358,7 +367,7 @@ func TestInspectorListsRetryTasks(t *testing.T) {
 	failed := make(chan struct{}, 1)
 	if err := srv.Start(asynq.HandlerFunc(func(ctx context.Context, task *asynq.Task) error {
 		failed <- struct{}{}
-		return errors.New("retry me")
+		return oops.New("retry me")
 	})); err != nil {
 		t.Fatal(err)
 	}
@@ -407,7 +416,8 @@ func TestInspectorCanListPaginated(t *testing.T) {
 	})))
 
 	for range count {
-		_, err := broker.Client().Enqueue(asynq.NewTask("completes", nil), asynq.Retention(time.Hour), asynq.Queue(queue))
+		_, err := broker.Client().
+			Enqueue(asynq.NewTask("completes", nil), asynq.Retention(time.Hour), asynq.Queue(queue))
 		require.NoError(t, err)
 	}
 	for range count {
@@ -444,7 +454,7 @@ func TestInspectorCanListPaginated(t *testing.T) {
 
 	tasks, err = inspector.ListCompletedTasks(queue, asynq.PageSize(2), asynq.Page(4))
 	require.NoError(t, err)
-	require.Len(t, tasks, 0)
+	require.Empty(t, tasks)
 }
 
 func TestInspectorRunAndDeleteAllRetryTasks(t *testing.T) {
@@ -463,7 +473,7 @@ func TestInspectorRunAndDeleteAllRetryTasks(t *testing.T) {
 	fail := make(chan struct{}, 2)
 	if err := srv.Start(asynq.HandlerFunc(func(ctx context.Context, task *asynq.Task) error {
 		fail <- struct{}{}
-		return errors.New("retry me")
+		return oops.New("retry me")
 	})); err != nil {
 		t.Fatal(err)
 	}
@@ -729,7 +739,7 @@ func TestMemoryGroupAggregation(t *testing.T) {
 		GroupGracePeriod: 50 * time.Millisecond,
 		GroupMaxSize:     2,
 		GroupAggregator: asynq.GroupAggregatorFunc(func(group string, tasks []*asynq.Task) *asynq.Task {
-			return asynq.NewTask("batched", []byte{byte(len(tasks))})
+			return asynq.NewTask("batched", []byte{byte(len(tasks))}) //nolint:gosec
 		}),
 	})
 	defer srv.Shutdown()
@@ -945,7 +955,8 @@ func TestTracingMiddlewarePropagatesProducerToConsumer(t *testing.T) {
 	if enqueue.Parent.TraceID() != root.SpanContext.TraceID() || enqueue.Parent.SpanID() != root.SpanContext.SpanID() {
 		t.Fatalf("enqueue parent = %s, want %s", enqueue.Parent.SpanID(), root.SpanContext.SpanID())
 	}
-	if process.Parent.TraceID() != enqueue.SpanContext.TraceID() || process.Parent.SpanID() != enqueue.SpanContext.SpanID() {
+	if process.Parent.TraceID() != enqueue.SpanContext.TraceID() ||
+		process.Parent.SpanID() != enqueue.SpanContext.SpanID() {
 		t.Fatalf("process parent = %s, want %s", process.Parent.SpanID(), enqueue.SpanContext.SpanID())
 	}
 	if got := attributeValue(process.Attributes, "asynq.task.type"); got != "trace:task" {
@@ -1037,7 +1048,8 @@ func TestWithTracingSchedulerOptsCreatesProducerSpan(t *testing.T) {
 	})
 	scheduled := spans["asynq schedule trace:periodic"]
 	process := spans["asynq process trace:periodic"]
-	if process.Parent.TraceID() != scheduled.SpanContext.TraceID() || process.Parent.SpanID() != scheduled.SpanContext.SpanID() {
+	if process.Parent.TraceID() != scheduled.SpanContext.TraceID() ||
+		process.Parent.SpanID() != scheduled.SpanContext.SpanID() {
 		t.Fatalf("scheduled process parent = %s, want %s", process.Parent.SpanID(), scheduled.SpanContext.SpanID())
 	}
 }
@@ -1137,7 +1149,7 @@ func TestUpsertRecurringTaskAddsRecurringHeaders(t *testing.T) {
 	version, ok := recurringTaskVersion(pending[0].Headers)
 	assert.True(t, ok)
 	assert.NotEmpty(t, version)
-	assert.Equal(t, []byte(`{"name":"alpha"}`), pending[0].Payload)
+	assert.JSONEq(t, `{"name":"alpha"}`, string(pending[0].Payload))
 }
 
 func TestUpsertRecurringTaskUpdateSchedulesNextRun(t *testing.T) {
@@ -1166,7 +1178,7 @@ func TestUpsertRecurringTaskUpdateSchedulesNextRun(t *testing.T) {
 
 	pending, err := inspector.ListPendingTasks("default")
 	require.NoError(t, err)
-	assert.Len(t, pending, 0)
+	assert.Empty(t, pending)
 
 	scheduled, err := inspector.ListScheduledTasks("default")
 	require.NoError(t, err)
@@ -1202,7 +1214,7 @@ func TestDeleteRecurringTaskRemovesPendingScheduledAndRetryCopies(t *testing.T) 
 	failed := make(chan struct{}, 1)
 	if err := srv.Start(asynq.HandlerFunc(func(ctx context.Context, task *asynq.Task) error {
 		failed <- struct{}{}
-		return errors.New("boom")
+		return oops.New("boom")
 	})); err != nil {
 		t.Fatal(err)
 	}
@@ -1326,7 +1338,7 @@ func TestSelfReschedulingTaskMiddlewareSkipsNonRecurringTasks(t *testing.T) {
 
 	scheduled, err := inspector.ListScheduledTasks("default")
 	require.NoError(t, err)
-	assert.Len(t, scheduled, 0)
+	assert.Empty(t, scheduled)
 }
 
 func TestRecurringTaskDeleteWhileActivePreventsReenqueue(t *testing.T) {
@@ -1372,7 +1384,7 @@ func TestRecurringTaskDeleteWhileActivePreventsReenqueue(t *testing.T) {
 
 	scheduled, err := inspector.ListScheduledTasks("default")
 	require.NoError(t, err)
-	assert.Len(t, scheduled, 0)
+	assert.Empty(t, scheduled)
 }
 
 func TestRecurringTaskUpsertWhileActivePreventsOldReenqueue(t *testing.T) {
@@ -1434,7 +1446,7 @@ func TestRecurringTaskUpsertWhileActivePreventsOldReenqueue(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, ok)
 	assert.Equal(t, 25*time.Millisecond, state.Interval)
-	assert.Len(t, started, 0)
+	assert.Empty(t, started)
 }
 
 func TestRecurringTaskRedisInitialInsertRunsImmediately(t *testing.T) {
@@ -1541,7 +1553,7 @@ func TestRecurringTaskRedisDeleteWhileActivePreventsReenqueue(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	scheduled, err := inspector.ListScheduledTasks("default")
 	require.NoError(t, err)
-	assert.Len(t, scheduled, 0)
+	assert.Empty(t, scheduled)
 }
 
 func TestRecurringTaskRedisStateUsesConfiguredPrefix(t *testing.T) {
@@ -1551,9 +1563,13 @@ func TestRecurringTaskRedisStateUsesConfiguredPrefix(t *testing.T) {
 	require.NoError(t, err)
 	defer mr.Close()
 
+	runtimeCfg := config.DefaultConfig()
+	runtimeCfg.App.Keyspace.App = "tenant-a"
+	runtimeCfg.App.Keyspace.TenantID = "tenant-b"
+
 	broker, err := New(Config{
-		Mode:           ModeRedis,
-		RedisKeyPrefix: "tenant-a",
+		Mode:          ModeRedis,
+		RuntimeConfig: runtimeCfg,
 		Redis: asynq.RedisClientOpt{
 			Addr: mr.Addr(),
 		},
@@ -1569,7 +1585,7 @@ func TestRecurringTaskRedisStateUsesConfiguredPrefix(t *testing.T) {
 	require.NoError(t, err)
 
 	keys := mr.Keys()
-	assert.Contains(t, keys, "tenant-a:asynqwrap:recurring-state:\"job-prefixed\"")
+	assert.Contains(t, keys, runtimeCfg.App.Keyspace.Key("asynqwrap", "recurring-state", `"job-prefixed"`))
 }
 
 func TestCronSpecEvery(t *testing.T) {
@@ -1606,7 +1622,7 @@ func TestRedisRequiresConfig(t *testing.T) {
 func TestNewFromRedisClientRejectsNil(t *testing.T) {
 	t.Parallel()
 	var client redis.UniversalClient
-	if _, err := NewFromRedisClient(client); err == nil {
+	if _, err := NewFromRedisClient(client, config.DefaultConfig()); err == nil {
 		t.Fatal("expected nil redis client error")
 	}
 }
