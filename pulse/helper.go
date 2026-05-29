@@ -3,6 +3,7 @@ package pulse
 import (
 	"connectrpc.com/connect"
 	"github.com/apache/pulsar-client-go/pulsar"
+	"github.com/otpki/otpki-pkg/config"
 	"github.com/otpki/otpki-pkg/helpers"
 	"github.com/samber/oops"
 	"google.golang.org/protobuf/proto"
@@ -19,16 +20,13 @@ const (
 	PrincipalKey     = "user_principal"
 )
 
-func BuildTopic(topic string, conf *PulsarConfig, ephemeral bool) string {
+func BuildTopic(topic string, conf config.PulsarConfig, ephemeral bool) string {
 	persist := "persistent"
 	if ephemeral {
 		//persist = "non-" + persist //TODO: unknown issue with ephemeral topics..
 	}
 	tenantName := helpers.DefaultIfEmpty(conf.Tenant, "public")
 	ns := helpers.DefaultIfEmpty(conf.Namespace, "default")
-	if conf.TopicPrefix != "" {
-		topic = conf.TopicPrefix + "-" + topic
-	}
 	return persist + "://" + tenantName + "/" + ns + "/" + topic
 }
 

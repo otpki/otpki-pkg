@@ -4,14 +4,8 @@ import (
 	"time"
 
 	"github.com/apache/pulsar-client-go/pulsar"
+	"github.com/otpki/otpki-pkg/config"
 )
-
-type PulsarConfig struct {
-	Connection  string
-	Tenant      string
-	Namespace   string
-	TopicPrefix string // For testing
-}
 
 type Runnable interface {
 	Start()    // start the listener
@@ -34,7 +28,7 @@ type TopicPolicies struct {
 }
 
 type RPCClientConfig struct {
-	PulsarConfig           *PulsarConfig
+	PulsarConfig           config.PulsarConfig
 	PulsarClient           pulsar.Client
 	TopicPolicies          *TopicPolicies       // optional
 	RequestTopic           string               // non-fully qualified request topic (we produce)
@@ -53,7 +47,7 @@ type RPCClientConfig struct {
 }
 
 type RPCServerConfig struct {
-	PulsarConfig         *PulsarConfig
+	PulsarConfig         config.PulsarConfig
 	PulsarClient         pulsar.Client
 	TopicPolicies        *TopicPolicies // optional
 	RequestTopic         string         // non-fully qualified request topic (we consume)

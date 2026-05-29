@@ -21,9 +21,6 @@ type clientBase struct {
 }
 
 func newClientBase(ctx context.Context, config *RPCClientConfig) (*clientBase, error) {
-	if config.PulsarConfig == nil {
-		return nil, oops.In(ServiceName).New("missing pulsar config")
-	}
 	if config.PulsarClient == nil {
 		return nil, oops.In(ServiceName).New("missing pulsar connection")
 	}
