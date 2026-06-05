@@ -23,10 +23,13 @@ const (
 // Use this wherever HashiCorp go-plugin requires hclog.Logger:
 //   - host:   plugin.ClientConfig.Logger
 //   - plugin: plugin.ServeConfig.Logger
-func NewHCLogLogger(base Logger) hclog.Logger {
+func NewHCLogLogger(base Logger, level hclog.Level) hclog.Logger {
+	if level == hclog.NoLevel {
+		level = hclog.Trace
+	}
 	return &hcLogToLogger{
 		base:  base,
-		level: hclog.Info,
+		level: level,
 	}
 }
 
