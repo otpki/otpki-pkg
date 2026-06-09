@@ -46,6 +46,7 @@ require (
 	github.com/testcontainers/testcontainers-go/modules/redis v0.42.0
 	github.com/testcontainers/testcontainers-go/modules/redpanda v0.42.0
 	github.com/vgarvardt/pgx-google-uuid/v5 v5.6.0
+	github.com/xhit/go-simple-mail/v2 v2.16.0
 	go.opentelemetry.io/otel v1.44.0
 	go.opentelemetry.io/otel/log v0.20.0
 	go.opentelemetry.io/otel/sdk v1.44.0
@@ -169,6 +170,7 @@ require (
 	github.com/theparanoids/crypki v1.21.0 // indirect
 	github.com/tklauser/go-sysconf v0.4.0 // indirect
 	github.com/tklauser/numcpus v0.12.0 // indirect
+	github.com/toorop/go-dkim v0.0.0-20201103131630-e1cd1a0a5208 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/yuin/gopher-lua v1.1.2 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect

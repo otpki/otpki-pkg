@@ -1,0 +1,34 @@
+{{ .Heading }}
+{{ range .Intros }}
+{{ . }}
+{{ end }}
+{{- if .Dictionary -}}
+{{ range .Dictionary }}
+{{ .Key }}: {{ .Value }}
+{{- end }}
+{{ end }}
+{{- if .Table.Rows -}}
+{{ if .Table.Headers }}
+{{ range $i, $h := .Table.Headers }}{{ if $i }} | {{ end }}{{ $h }}{{ end }}
+{{- end }}
+{{ range .Table.Rows }}
+{{ range $i, $c := . }}{{ if $i }} | {{ end }}{{ $c }}{{ end }}
+{{- end }}
+{{ end }}
+{{- range .Actions }}
+{{- if .Instructions }}
+{{ .Instructions }}
+{{- end }}
+{{- if .Button.Link }}
+{{ .Button.Text }}: {{ .Button.Link }}
+{{- end }}
+{{ end }}
+{{- range .Outros }}
+{{ . }}
+{{ end }}
+{{ .Signature }}
+{{ .Product }}
+
+—
+This is an automated message from {{ .Product }}. Please do not reply to this email.
+© {{ .Year }} {{ .Product }}

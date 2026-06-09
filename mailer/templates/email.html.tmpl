@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="color-scheme" content="light dark">
+  <meta name="supported-color-schemes" content="light dark">
+  <title>{{ .Product }}</title>
+  <!--[if mso]>
+  <noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
+  <![endif]-->
+  <style>
+    :root { color-scheme: light dark; supported-color-schemes: light dark; }
+    body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+    img { -ms-interpolation-mode: bicubic; border: 0; outline: none; text-decoration: none; }
+    body { margin: 0 !important; padding: 0 !important; width: 100% !important; }
+
+    .email-body  { background-color: #f2f4f7; }
+    .card        { background-color: #ffffff; }
+    .accent-bar  { background-color: #2563eb; }
+    .text-strong { color: #101828; }
+    .text-body   { color: #344054; }
+    .text-muted  { color: #667085; }
+    .cred-box    { background-color: #f8fafc; border: 1px solid #e4e7ec; }
+    .cred-value  { color: #101828; }
+    .row-divider { border-bottom: 1px solid #eaecf0; }
+
+    @media (prefers-color-scheme: dark) {
+      .email-body  { background-color: #0b1120 !important; }
+      .card        { background-color: #151c2c !important; }
+      .text-strong { color: #f5f7fa !important; }
+      .text-body   { color: #d4dae5 !important; }
+      .text-muted  { color: #98a2b3 !important; }
+      .cred-box    { background-color: #0b1120 !important; border-color: #2a3447 !important; }
+      .cred-value  { color: #f5f7fa !important; }
+      .row-divider { border-color: #2a3447 !important; }
+      a            { color: #93c5fd !important; }
+    }
+
+    @media screen and (max-width: 600px) {
+      .container { width: 100% !important; }
+      .pad-x     { padding-left: 24px !important; padding-right: 24px !important; }
+    }
+  </style>
+</head>
+<body class="email-body" style="margin:0; padding:0; background-color:#f2f4f7;">
+  <div style="display:none; max-height:0; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; color:#f2f4f7; opacity:0;">
+    {{ .Preheader }}&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;&#847;&zwnj;&nbsp;
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="email-body" style="background-color:#f2f4f7;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+
+        <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px;">
+          <tr>
+            <td class="pad-x" style="padding:4px 40px 24px; text-align:center;">
+              <img src="{{ .LogoSrc }}" width="140" height="49" alt="{{ .Product }}" style="display:block; margin:0 auto; width:140px; max-width:140px; height:auto; border:0; outline:none; text-decoration:none; -ms-interpolation-mode:bicubic;">
+            </td>
+          </tr>
+        </table>
+
+        <table role="presentation" class="container card" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px; background-color:#ffffff; border-radius:14px; box-shadow:0 1px 4px rgba(16,24,40,0.08); overflow:hidden;">
+          <tr>
+            <td class="accent-bar" style="height:4px; background-color:#2563eb; font-size:0; line-height:0;">&nbsp;</td>
+          </tr>
+          <tr>
+            <td class="pad-x" style="padding:36px 40px 8px;">
+              <h1 class="text-strong" style="margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; font-size:22px; font-weight:700; line-height:1.3;">{{ .Heading }}</h1>
+            </td>
+          </tr>
+
+          {{ range .Intros }}
+          <tr>
+            <td class="pad-x" style="padding:12px 40px 0;">
+              <p class="text-body" style="margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; font-size:15px; line-height:1.6;">{{ . }}</p>
+            </td>
+          </tr>
+          {{ end }}
+
+          {{ if .Dictionary }}
+          <tr>
+            <td class="pad-x" style="padding:24px 40px 0;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="cred-box" style="background-color:#f8fafc; border:1px solid #e4e7ec; border-radius:10px;">
+                {{ range .Dictionary }}
+                <tr>
+                  <td style="padding:16px 20px;">
+                    <p class="text-muted" style="margin:0 0 5px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.6px;">{{ .Key }}</p>
+                    <p class="cred-value" style="margin:0; font-family:'SF Mono',SFMono-Regular,ui-monospace,Menlo,Consolas,'Liberation Mono',monospace; font-size:16px; font-weight:600; word-break:break-all;">{{ .Value }}</p>
+                  </td>
+                </tr>
+                {{ end }}
+              </table>
+            </td>
+          </tr>
+          {{ end }}
+
+          {{ if .Table.Rows }}
+          <tr>
+            <td class="pad-x" style="padding:24px 40px 0;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
+                {{ if .Table.Headers }}
+                <tr>
+                  {{ range .Table.Headers }}
+                  <th align="left" class="text-muted row-divider" style="padding:0 12px 8px 0; border-bottom:1px solid #eaecf0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">{{ . }}</th>
+                  {{ end }}
+                </tr>
+                {{ end }}
+                {{ range .Table.Rows }}
+                <tr>
+                  {{ range . }}
+                  <td class="text-body row-divider" style="padding:11px 12px 11px 0; border-bottom:1px solid #f2f4f7; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; font-size:14px;">{{ . }}</td>
+                  {{ end }}
+                </tr>
+                {{ end }}
+              </table>
+            </td>
+          </tr>
+          {{ end }}
+
+          {{ range .Actions }}
+          {{ if .Instructions }}
+          <tr>
+            <td class="pad-x" style="padding:24px 40px 0;">
+              <p class="text-body" style="margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; font-size:15px; line-height:1.6;">{{ .Instructions }}</p>
+            </td>
+          </tr>
+          {{ end }}
+          {{ if .Button.Link }}
+          <tr>
+            <td class="pad-x" style="padding:20px 40px 0;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" style="border-radius:8px; background-color:{{ .Button.Color }};">
+                    <a href="{{ .Button.Link }}" target="_blank" style="display:inline-block; padding:13px 28px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; font-size:15px; font-weight:600; line-height:1; color:{{ .Button.TextColor }}; text-decoration:none; border-radius:8px;">{{ .Button.Text }}</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          {{ end }}
+          {{ end }}
+
+          {{ range .Outros }}
+          <tr>
+            <td class="pad-x" style="padding:18px 40px 0;">
+              <p class="text-muted" style="margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; font-size:14px; line-height:1.6;">{{ . }}</p>
+            </td>
+          </tr>
+          {{ end }}
+
+          <tr>
+            <td class="pad-x" style="padding:30px 40px 38px;">
+              <p class="text-body" style="margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; font-size:15px; line-height:1.6;">{{ .Signature }}<br><strong class="text-strong">{{ .Product }}</strong></p>
+            </td>
+          </tr>
+        </table>
+
+        <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px;">
+          <tr>
+            <td class="pad-x" style="padding:24px 40px 8px; text-align:center;">
+              <p class="text-muted" style="margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; font-size:12px; line-height:1.5;">This is an automated message from {{ .Product }}. Please do not reply to this email.</p>
+              <p class="text-muted" style="margin:8px 0 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; font-size:12px;">&copy; {{ .Year }} {{ .Product }}</p>
+            </td>
+          </tr>
+        </table>
+
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
