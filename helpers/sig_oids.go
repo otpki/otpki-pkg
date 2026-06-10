@@ -117,29 +117,29 @@ func AlgIDFromSigAlg(sa x509.SignatureAlgorithm) (oid asn1.ObjectIdentifier, par
 		return oids.OidMLDSA87, nil, nil
 
 	case x509.SLHDSAWithSHA128s:
-		return oids.OidHashSLHDSASHA2_128s, nil, nil
+		return oids.OidSLHDSASHA2_128s, nil, nil
 	case x509.SLHDSAWithSHAKE128s:
-		return oids.OidHashSLHDSASHAKE_128s, nil, nil
+		return oids.OidSLHDSASHAKE_128s, nil, nil
 	case x509.SLHDSAWithSHA128f:
-		return oids.OidHashSLHDSASHA2_128f, nil, nil
+		return oids.OidSLHDSASHA2_128f, nil, nil
 	case x509.SLHDSAWithSHAKE128f:
-		return oids.OidHashSLHDSASHAKE_128f, nil, nil
+		return oids.OidSLHDSASHAKE_128f, nil, nil
 	case x509.SLHDSAWithSHA192s:
-		return oids.OidHashSLHDSASHA2_192s, nil, nil
+		return oids.OidSLHDSASHA2_192s, nil, nil
 	case x509.SLHDSAWithSHAKE192s:
-		return oids.OidHashSLHDSASHAKE_192s, nil, nil
+		return oids.OidSLHDSASHAKE_192s, nil, nil
 	case x509.SLHDSAWithSHA192f:
-		return oids.OidHashSLHDSASHA2_192f, nil, nil
+		return oids.OidSLHDSASHA2_192f, nil, nil
 	case x509.SLHDSAWithSHAKE192f:
-		return oids.OidHashSLHDSASHAKE_192f, nil, nil
+		return oids.OidSLHDSASHAKE_192f, nil, nil
 	case x509.SLHDSAWithSHA256s:
-		return oids.OidHashSLHDSASHA2_256s, nil, nil
+		return oids.OidSLHDSASHA2_256s, nil, nil
 	case x509.SLHDSAWithSHAKE256s:
-		return oids.OidHashSLHDSASHAKE_256s, nil, nil
+		return oids.OidSLHDSASHAKE_256s, nil, nil
 	case x509.SLHDSAWithSHA256f:
-		return oids.OidHashSLHDSASHA2_256f, nil, nil
+		return oids.OidSLHDSASHA2_256f, nil, nil
 	case x509.SLHDSAWithSHAKE256f:
-		return oids.OidHashSLHDSASHAKE_256f, nil, nil
+		return oids.OidSLHDSASHAKE_256f, nil, nil
 
 	case x509.ECDSAWithSHAKE128:
 		return oids.OidECDSAWithSHAKE128, nil, nil
@@ -249,29 +249,29 @@ func SigAlgFromAlgID(oid asn1.ObjectIdentifier, params *asn1.RawValue) (x509.Sig
 		return x509.PureMLDSA87, nil
 
 	// Hash-SLH-DSA
-	case oid.Equal(oids.OidHashSLHDSASHA2_128s):
+	case oid.Equal(oids.OidSLHDSASHA2_128s):
 		return x509.SLHDSAWithSHA128s, nil
-	case oid.Equal(oids.OidHashSLHDSASHAKE_128s):
+	case oid.Equal(oids.OidSLHDSASHAKE_128s):
 		return x509.SLHDSAWithSHAKE128s, nil
-	case oid.Equal(oids.OidHashSLHDSASHA2_128f):
+	case oid.Equal(oids.OidSLHDSASHA2_128f):
 		return x509.SLHDSAWithSHA128f, nil
-	case oid.Equal(oids.OidHashSLHDSASHAKE_128f):
+	case oid.Equal(oids.OidSLHDSASHAKE_128f):
 		return x509.SLHDSAWithSHAKE128f, nil
-	case oid.Equal(oids.OidHashSLHDSASHA2_192s):
+	case oid.Equal(oids.OidSLHDSASHA2_192s):
 		return x509.SLHDSAWithSHA192s, nil
-	case oid.Equal(oids.OidHashSLHDSASHAKE_192s):
+	case oid.Equal(oids.OidSLHDSASHAKE_192s):
 		return x509.SLHDSAWithSHAKE192s, nil
-	case oid.Equal(oids.OidHashSLHDSASHA2_192f):
+	case oid.Equal(oids.OidSLHDSASHA2_192f):
 		return x509.SLHDSAWithSHA192f, nil
-	case oid.Equal(oids.OidHashSLHDSASHAKE_192f):
+	case oid.Equal(oids.OidSLHDSASHAKE_192f):
 		return x509.SLHDSAWithSHAKE192f, nil
-	case oid.Equal(oids.OidHashSLHDSASHA2_256s):
+	case oid.Equal(oids.OidSLHDSASHA2_256s):
 		return x509.SLHDSAWithSHA256s, nil
-	case oid.Equal(oids.OidHashSLHDSASHAKE_256s):
+	case oid.Equal(oids.OidSLHDSASHAKE_256s):
 		return x509.SLHDSAWithSHAKE256s, nil
-	case oid.Equal(oids.OidHashSLHDSASHA2_256f):
+	case oid.Equal(oids.OidSLHDSASHA2_256f):
 		return x509.SLHDSAWithSHA256f, nil
-	case oid.Equal(oids.OidHashSLHDSASHAKE_256f):
+	case oid.Equal(oids.OidSLHDSASHAKE_256f):
 		return x509.SLHDSAWithSHAKE256f, nil
 
 	default:

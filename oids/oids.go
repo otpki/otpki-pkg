@@ -5,7 +5,8 @@ import (
 )
 
 var (
-	// MS specified OIDs (https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-wcce/f4eb50d5-62f6-470b-8846-9489af9dea62)
+	// MS specified OIDs
+	// https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-wcce/f4eb50d5-62f6-470b-8846-9489af9dea62
 	OidOSVersion               = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 311, 13, 2, 3}
 	OidEnrollmentCspProvider   = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 311, 13, 2, 2}
 	OidRenewalCertificate      = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 311, 13, 1}
@@ -34,7 +35,7 @@ var (
 	OidPKIXOCSPBasic                = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 1} // id-pkix-ocsp-basic
 	OidNonce                        = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 2} // id-pkix-ocsp-nonce
 	OidCRLReferences                = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 3} // id-pkix-ocsp-crl
-	OidResponseTypes                = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 4} // id-pkix-ocsp-response (AcceptableResponseTypes)
+	OidResponseTypes                = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 4} // id-pkix-ocsp-response
 	OidArchiveCutoff                = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 6} // id-pkix-ocsp-archive-cutoff
 	OidServiceLocator               = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 7} // id-pkix-ocsp-service-locator
 	OidPreferredSignatureAlgorithms = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 8} // id-pkix-ocsp-pref-sig-algs
@@ -56,6 +57,8 @@ var (
 	OidSignatureECDSAWithSHA512     = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 4}
 
 	// EC Curves
+	OidECP192 = asn1.ObjectIdentifier{1, 2, 840, 10045, 3, 1, 1}
+	OidECP224 = asn1.ObjectIdentifier{1, 3, 132, 0, 33}
 	OidECP256 = asn1.ObjectIdentifier{1, 2, 840, 10045, 3, 1, 7}
 	OidECP384 = asn1.ObjectIdentifier{1, 3, 132, 0, 34}
 	OidECP521 = asn1.ObjectIdentifier{1, 3, 132, 0, 35}
@@ -103,19 +106,30 @@ var (
 	OidMLDSA65 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 18}
 	OidMLDSA87 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 19}
 
-	// Hash-SLH-DSA (FIPS 205)
-	OidHashSLHDSASHA2_128s  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 20}
-	OidHashSLHDSASHA2_128f  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 21}
-	OidHashSLHDSASHA2_192s  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 22}
-	OidHashSLHDSASHA2_192f  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 23}
-	OidHashSLHDSASHA2_256s  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 24}
-	OidHashSLHDSASHA2_256f  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 25}
-	OidHashSLHDSASHAKE_128s = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 26}
-	OidHashSLHDSASHAKE_128f = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 27}
-	OidHashSLHDSASHAKE_192s = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 28}
-	OidHashSLHDSASHAKE_192f = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 29}
-	OidHashSLHDSASHAKE_256s = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 30}
-	OidHashSLHDSASHAKE_256f = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 31}
+	// ML-KEM (FIPS 203)
+	OidMLKEM512  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 4, 1}
+	OidMLKEM768  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 4, 2}
+	OidMLKEM1024 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 4, 3}
+
+	// SLH-DSA (FIPS 205)
+	OidSLHDSASHA2_128s  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 20}
+	OidSLHDSASHA2_128f  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 21}
+	OidSLHDSASHA2_192s  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 22}
+	OidSLHDSASHA2_192f  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 23}
+	OidSLHDSASHA2_256s  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 24}
+	OidSLHDSASHA2_256f  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 25}
+	OidSLHDSASHAKE_128s = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 26}
+	OidSLHDSASHAKE_128f = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 27}
+	OidSLHDSASHAKE_192s = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 28}
+	OidSLHDSASHAKE_192f = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 29}
+	OidSLHDSASHAKE_256s = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 30}
+	OidSLHDSASHAKE_256f = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 31}
+
+	// HSS/LMS (RFC 8708)
+	OidHSSLMS = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 16, 3, 17}
+
+	// XMSS (draft-vangeest-x509-hash-sigs)
+	OidXMSS = asn1.ObjectIdentifier{0, 4, 0, 127, 0, 15, 1, 1, 13, 0}
 
 	// EdDSA (RFC 8410)
 	OidEd25519 = asn1.ObjectIdentifier{1, 3, 101, 112}
