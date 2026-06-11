@@ -300,6 +300,12 @@ func (s *spfyServer) processTask(handler asynq.Handler, env *spfyTaskEnvelope) {
 	rec := doc.taskRecord()
 	ctx, cancel := s.taskContext(rec)
 	defer cancel()
+	ctx = withTaskResultWriter(
+		ctx,
+		doc.ID,
+		doc.Queue,
+		&spfyTaskResultWriter{broker: s.broker, env: env},
+	)
 
 	heartbeatCtx, heartbeatCancel := context.WithCancel(context.Background())
 	heartbeatDone := make(chan struct{})
@@ -626,4 +632,46 @@ func (s *spfyServer) failTask(ctx context.Context, env *spfyTaskEnvelope, taskEr
 		return nil
 	}
 	return oops.New("fail task failed after ETag retries")
+}
+
+type spfyTaskResultWriter struct {
+	broker *spfyBroker
+	env    *spfyTaskEnvelope
+}
+
+func (w *spfyTaskResultWriter) WriteTaskResult(ctx context.Context, data []byte) (int, error) {
+	result := slices.Clone(data)
+	// arbitrary retry until context cancels
+	for range 5 {
+		select {
+		case <-ctx.Done():
+			return 0, oops.Errorf("failed to write task result: %w", ctx.Err())
+		default:
+		}
+
+		doc, etag := w.env.snapshot()
+		doc.Result = append([]byte(nil), result...)
+		doc.refreshUnixFields()
+		if err := w.broker.applyStateOperation(
+			ctx,
+			spfySetRequest(w.env.key, doc, etag, false, w.broker.stateMetadata(0)),
+		); err != nil {
+			if isETagConflict(err) {
+				latest, ok, getErr := w.broker.getTask(ctx, doc.ID)
+				if getErr != nil || !ok {
+					return 0, getErr
+				}
+				w.env.replace(latest.doc, latest.etag)
+				continue
+			}
+			return 0, err
+		}
+		latest, ok, err := w.broker.getTask(ctx, doc.ID)
+		if err != nil || !ok {
+			return 0, err
+		}
+		w.env.replace(latest.doc, latest.etag)
+		return len(data), nil
+	}
+	return 0, oops.New("write task result failed after ETag retries")
 }

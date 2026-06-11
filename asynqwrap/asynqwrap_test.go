@@ -171,6 +171,43 @@ func TestServerRunImplementsBlockingInterface(t *testing.T) {
 	}
 }
 
+func TestMemoryTaskResultWriter(t *testing.T) {
+	t.Parallel()
+	broker, err := New(Config{Mode: ModeMemory})
+	require.NoError(t, err)
+	defer broker.Close()
+
+	done := make(chan struct{})
+	taskID := make(chan string, 1)
+	server := broker.Server(asynq.Config{Concurrency: 1})
+	require.NoError(t, server.Start(asynq.HandlerFunc(func(ctx context.Context, task *asynq.Task) error {
+		defer close(done)
+		require.Nil(t, task.ResultWriter())
+		writer := TaskResultWriter(ctx, task)
+		require.NotNil(t, writer)
+		taskID <- writer.TaskID()
+		n, err := writer.Write([]byte("ok"))
+		require.NoError(t, err)
+		require.Equal(t, 2, n)
+		return nil
+	})))
+	defer server.Stop()
+
+	info, err := broker.Client().Enqueue(asynq.NewTask("result:memory", nil), asynq.Retention(time.Hour))
+	require.NoError(t, err)
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("task was not processed")
+	}
+	require.Equal(t, info.ID, <-taskID)
+
+	got, err := broker.Inspector().GetTaskInfo(info.Queue, info.ID)
+	require.NoError(t, err)
+	require.Equal(t, []byte("ok"), got.Result)
+}
+
 func TestMemoryScheduling(t *testing.T) {
 	t.Parallel()
 	broker, _ := New(Config{Mode: ModeMemory})

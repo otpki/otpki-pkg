@@ -99,6 +99,44 @@ func TestSpfyProcessesTask(t *testing.T) {
 	})
 }
 
+func TestSpfyTaskResultWriter(t *testing.T) {
+	t.Parallel()
+	runSpfyBackendMatrix(t, func(t *testing.T, broker Broker) {
+		t.Helper()
+		server := broker.Server(asynq.Config{Concurrency: 1})
+		defer server.Shutdown()
+
+		done := make(chan struct{})
+		taskID := make(chan string, 1)
+		require.NoError(t, server.Start(asynq.HandlerFunc(func(ctx context.Context, task *asynq.Task) error {
+			defer close(done)
+			require.Nil(t, task.ResultWriter())
+			writer := TaskResultWriter(ctx, task)
+			require.NotNil(t, writer)
+			taskID <- writer.TaskID()
+			n, err := writer.Write([]byte("ok"))
+			require.NoError(t, err)
+			require.Equal(t, 2, n)
+			return nil
+		})))
+
+		info, err := broker.Client().Enqueue(asynq.NewTask("result:spfy", nil), asynq.Retention(time.Hour))
+		require.NoError(t, err)
+
+		select {
+		case <-done:
+		case <-time.After(3 * time.Second):
+			t.Fatal("task was not processed")
+		}
+		require.Equal(t, info.ID, <-taskID)
+
+		waitFor(t, 3*time.Second, func() bool {
+			got, err := broker.Inspector().GetTaskInfo(info.Queue, info.ID)
+			return err == nil && string(got.Result) == "ok"
+		})
+	})
+}
+
 func TestSpfyScheduling(t *testing.T) {
 	t.Parallel()
 	runSpfyBackendMatrix(t, func(t *testing.T, broker Broker) {

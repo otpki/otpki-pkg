@@ -121,6 +121,12 @@ func (s *memoryServer) nextTask() *taskRecord {
 func (s *memoryServer) processTask(handler asynq.Handler, rec *taskRecord) {
 	ctx, cancel := s.taskContext(rec)
 	defer cancel()
+	ctx = withTaskResultWriter(
+		ctx,
+		rec.info.ID,
+		rec.info.Queue,
+		&memoryTaskResultWriter{broker: s.broker, rec: rec},
+	)
 
 	err := s.runHandler(ctx, handler, rec)
 	s.finishProcessing(ctx, rec, err)
@@ -173,4 +179,22 @@ func (s *memoryServer) finishProcessing(ctx context.Context, rec *taskRecord, er
 	}
 
 	s.broker.failTaskLocked(ctx, s.cfg, rec, err, now)
+}
+
+type memoryTaskResultWriter struct {
+	broker *memoryBroker
+	rec    *taskRecord
+}
+
+func (w *memoryTaskResultWriter) WriteTaskResult(ctx context.Context, data []byte) (int, error) {
+	select {
+	case <-ctx.Done():
+		return 0, oops.Errorf("failed to write task result: %w", ctx.Err())
+	default:
+	}
+
+	w.broker.mu.Lock()
+	w.rec.info.Result = append([]byte(nil), data...)
+	w.broker.mu.Unlock()
+	return len(data), nil
 }
