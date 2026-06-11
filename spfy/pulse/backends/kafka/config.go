@@ -25,7 +25,7 @@ type Config struct {
 
 	// EnsureTopic is intentionally not loaded from configuration. Pass it from
 	// code when your Kafka cluster does not auto-create topics.
-	EnsureTopic TopicEnsurer `mapstructure:"-"`
+	EnsureTopic TopicEnsurer `mapstructure:"-" json:"-"`
 }
 
 func DefaultConfig() Config {
