@@ -10,6 +10,7 @@ import (
 	"time"
 
 	pulsekafka "github.com/otpki/otpki-pkg/spfy/pulse/backends/kafka"
+	"github.com/samber/oops"
 	segmentio "github.com/segmentio/kafka-go"
 	kafkasasl "github.com/segmentio/kafka-go/sasl"
 	"github.com/segmentio/kafka-go/sasl/plain"
@@ -38,7 +39,7 @@ func (m *KafkaSASLMechanism) UnmarshalText(text []byte) error {
 		*m = KafkaSASLMechanismPlain
 		return nil
 	default:
-		return fmt.Errorf("unsupported kafka sasl mechanism %q", string(text))
+		return oops.Errorf("unsupported kafka sasl mechanism %q", string(text))
 	}
 }
 
@@ -240,13 +241,13 @@ func kafkaSASLMechanism(cfg *KafkaSASLConfig) (kafkasasl.Mechanism, error) {
 		return nil, nil
 	}
 	if cfg.AuthzID != "" {
-		return nil, fmt.Errorf("kafka-go backend client does not support sasl authz_id")
+		return nil, oops.Errorf("kafka-go backend client does not support sasl authz_id")
 	}
 	switch cfg.Mechanism {
 	case "", KafkaSASLMechanismPlain:
 		return plain.Mechanism{Username: cfg.User, Password: cfg.Password}, nil
 	default:
-		return nil, fmt.Errorf("unsupported kafka sasl mechanism %q for kafka-go backend client", string(cfg.Mechanism))
+		return nil, oops.Errorf("unsupported kafka sasl mechanism %q for kafka-go backend client", string(cfg.Mechanism))
 	}
 }
 

@@ -3,7 +3,6 @@ package clientcfg
 import (
 	"context"
 	"encoding"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -15,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/sns"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
+	"github.com/samber/oops"
 )
 
 var _ encoding.TextUnmarshaler = (*AWSRetryMode)(nil)
@@ -37,7 +37,7 @@ func (m *AWSRetryMode) UnmarshalText(text []byte) error {
 	case "legacy":
 		*m = AWSRetryModeLegacy
 	default:
-		return fmt.Errorf("invalid aws retry mode %q", string(text))
+		return oops.Errorf("invalid aws retry mode %q", string(text))
 	}
 	return nil
 }
@@ -77,7 +77,7 @@ func (f *AWSClientLogModeFlag) UnmarshalText(text []byte) error {
 	case "response_with_body", "response-with-body":
 		*f = AWSLogResponseWithBody
 	default:
-		return fmt.Errorf("invalid aws client log mode %q", string(text))
+		return oops.Errorf("invalid aws client log mode %q", string(text))
 	}
 	return nil
 }

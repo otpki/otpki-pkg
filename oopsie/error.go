@@ -195,7 +195,7 @@ func Unmarshal(data []byte) (*Error, error) {
 
 	var envelope Envelope
 	if err := json.Unmarshal(data, &envelope); err != nil {
-		return nil, fmt.Errorf("unmarshal oopsie envelope: %w", err)
+		return nil, oops.Errorf("unmarshal oopsie envelope: %w", err)
 	}
 
 	if envelope.Version == 0 {

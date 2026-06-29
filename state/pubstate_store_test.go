@@ -49,7 +49,7 @@ func TestPubStateStoreContract(t *testing.T) {
 
 		backend := newPubStateBackend(t, func(cfg *config.Config) {
 			cfg.StateStore.Enabled = true
-			cfg.StateStore.Backend = config.StateStoreBackendRedis
+			cfg.StateStore.Backends = []config.StateStoreBackend{config.StateStoreBackendRedis}
 			cfg.Backends.Redis.Addrs = []string{mr.Addr()}
 		})
 
@@ -63,7 +63,7 @@ func TestPubStateStoreContract(t *testing.T) {
 
 		backend := newPubStateBackend(t, func(cfg *config.Config) {
 			cfg.StateStore.Enabled = true
-			cfg.StateStore.Backend = config.StateStoreBackendNATSJetStream
+			cfg.StateStore.Backends = []config.StateStoreBackend{config.StateStoreBackendNATSJetStream}
 			cfg.Backends.NATS.URL = srv.ClientURL()
 		})
 
@@ -77,7 +77,7 @@ func TestPubStateStoreContract(t *testing.T) {
 
 		backend := newPubStateBackend(t, func(cfg *config.Config) {
 			cfg.StateStore.Enabled = true
-			cfg.StateStore.Backend = config.StateStoreBackendNATSCore
+			cfg.StateStore.Backends = []config.StateStoreBackend{config.StateStoreBackendNATSCore}
 			cfg.Backends.NATS.URL = srv.ClientURL()
 		})
 
@@ -89,7 +89,7 @@ func TestPubStateStoreContract(t *testing.T) {
 	t.Run("ristretto", func(t *testing.T) {
 		backend := newPubStateBackend(t, func(cfg *config.Config) {
 			cfg.StateStore.Enabled = true
-			cfg.StateStore.Backend = config.StateStoreBackendRistretto
+			cfg.StateStore.Backends = []config.StateStoreBackend{config.StateStoreBackendRistretto}
 		})
 
 		runPubStateStoreContractTests(t, func() state.Store[string, string] {

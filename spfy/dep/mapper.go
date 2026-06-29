@@ -68,12 +68,47 @@ func NewStateStore[T any](i do.Injector, codec anchor.Codec[T]) (anchor.Store[T]
 		return anchormemory.New(ssCfg.Memory, codec), nil
 	}
 
-	factory, ok := stateStoreFactories[T]()[ssCfg.Backend]
-	if !ok {
-		factory = stateStoreFactories[T]()[config.StateStoreBackendRedis]
+	stores, err := buildStateStores(i, ssCfg, codec, ssCfg.Backends)
+	if err != nil {
+		return nil, err
 	}
 
-	return factory(i, ssCfg, codec)
+	return anchor.NewTieredStore(stores...)
+}
+
+func buildStateStores[T any](
+	i do.Injector,
+	ssCfg config.StateStoreConfig,
+	codec anchor.Codec[T],
+	backends []config.StateStoreBackend,
+) ([]anchor.Store[T], error) {
+	factoriesByBackend := stateStoreFactories[T]()
+
+	factories := make([]stateStoreFactory[T], 0, len(backends))
+	for _, backend := range backends {
+		if factory, ok := factoriesByBackend[backend]; ok {
+			factories = append(factories, factory)
+		}
+	}
+
+	if len(factories) == 0 {
+		factories = append(
+			factories,
+			factoriesByBackend[config.StateStoreBackendMemory],
+			factoriesByBackend[config.StateStoreBackendRedis],
+		)
+	}
+
+	stores := make([]anchor.Store[T], 0, len(factories))
+	for _, factory := range factories {
+		store, err := factory(i, ssCfg, codec)
+		if err != nil {
+			return nil, err
+		}
+		stores = append(stores, store)
+	}
+
+	return stores, nil
 }
 
 func NewPubSub(i do.Injector) (pulse.Backend, error) {

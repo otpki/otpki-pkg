@@ -2,7 +2,6 @@ package asynqwrap
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/hibiken/asynq"
 	"github.com/samber/oops"
@@ -50,7 +49,7 @@ func (w *ResultWriter) Write(data []byte) (n int, err error) {
 	}
 	select {
 	case <-w.ctx.Done():
-		return 0, fmt.Errorf("failed to write task result: %w", w.ctx.Err())
+		return 0, oops.Errorf("failed to write task result: %w", w.ctx.Err())
 	default:
 	}
 	if w.upstream != nil {

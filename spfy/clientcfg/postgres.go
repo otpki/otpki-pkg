@@ -3,7 +3,6 @@ package clientcfg
 import (
 	"context"
 	"encoding"
-	"fmt"
 	"log/slog"
 	"net"
 	"net/url"
@@ -14,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/tracelog"
+	"github.com/samber/oops"
 	pgxUUID "github.com/vgarvardt/pgx-google-uuid/v5"
 )
 
@@ -46,7 +46,7 @@ func (m *PostgresSSLMode) UnmarshalText(text []byte) error {
 	case "verify-full", "verify_full", "verifyfull":
 		*m = PostgresSSLVerifyFull
 	default:
-		return fmt.Errorf("invalid postgres sslmode %q", string(text))
+		return oops.Errorf("invalid postgres sslmode %q", string(text))
 	}
 	return nil
 }
@@ -74,7 +74,7 @@ func (l *PostgresLogLevel) UnmarshalText(text []byte) error {
 	case "warn", "warning":
 		*l = PostgresLogLevelWarn
 	default:
-		return fmt.Errorf("invalid postgres log level %q", string(text))
+		return oops.Errorf("invalid postgres log level %q", string(text))
 	}
 	return nil
 }
@@ -151,7 +151,6 @@ func NewPostgresPool(ctx context.Context, cfg PostgresClientConfig, logger *slog
 		return nil, err
 	}
 	applyPostgresConnBehavior(poolCfg.ConnConfig, cfg, logger)
-	searchPath := postgresSearchPath(cfg)
 	prevAfterConnect := poolCfg.AfterConnect
 	poolCfg.AfterConnect = func(ctx context.Context, conn *pgx.Conn) error {
 		pgxUUID.Register(conn.TypeMap())
@@ -160,8 +159,9 @@ func NewPostgresPool(ctx context.Context, cfg PostgresClientConfig, logger *slog
 				return err
 			}
 		}
-		_, err := conn.Exec(ctx, "set search_path to "+strings.Join(searchPath, ", "))
-		return err
+		return nil
+		//_, err := conn.Exec(ctx, "set search_path to "+strings.Join(searchPath, ", "))
+		//return err
 	}
 	if cfg.TLS != nil {
 		tlsCfg, err := BuildTLSConfig(cfg.TLS)

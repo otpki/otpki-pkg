@@ -31,30 +31,33 @@ var (
 	OidCARepoLocation             = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 5}
 	OidAttributeChangeSubjectName = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 36}
 
-	OidADOCSP                       = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1}    // id-ad-ocsp
-	OidPKIXOCSPBasic                = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 1} // id-pkix-ocsp-basic
-	OidNonce                        = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 2} // id-pkix-ocsp-nonce
-	OidCRLReferences                = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 3} // id-pkix-ocsp-crl
-	OidResponseTypes                = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 4} // id-pkix-ocsp-response
-	OidArchiveCutoff                = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 6} // id-pkix-ocsp-archive-cutoff
-	OidServiceLocator               = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 7} // id-pkix-ocsp-service-locator
-	OidPreferredSignatureAlgorithms = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 8} // id-pkix-ocsp-pref-sig-algs
-	OidExtendedRevoke               = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 9} // id-pkix-ocsp-extended-revoke
-	OidASN1SHA1                     = asn1.ObjectIdentifier{1, 3, 14, 3, 2, 26}
-	OidASN1SHA256                   = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 1}
-	OidASN1SHA384                   = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 2}
-	OidASN1SHA512                   = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 3}
-	OidMD5WithRSA                   = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 4}
-	OidSignatureSHA1WithRSA         = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 5}
-	OidMGF1                         = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 8}
-	OidRSASSAPSS                    = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 10}
-	OidSignatureSHA256WithRSA       = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 11}
-	OidSignatureSHA384WithRSA       = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 12}
-	OidSignatureSHA512WithRSA       = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 13}
-	OidSignatureECDSAWithSHA1       = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 1}
-	OidSignatureECDSAWithSHA256     = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 2}
-	OidSignatureECDSAWithSHA384     = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 3}
-	OidSignatureECDSAWithSHA512     = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 4}
+	OidOCSPAD                           = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1}    // id-ad-ocsp
+	OidOCSPBasic                        = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 1} // id-pkix-ocsp-basic
+	OidOCSPNonce                        = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 2} // id-pkix-ocsp-nonce
+	OidOCSPCRLReferences                = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 3} // id-pkix-ocsp-crl
+	OidOCSPResponseTypes                = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 4} // id-pkix-ocsp-response
+	OidOCSPNoCheck                      = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 5}
+	OidOCSPArchiveCutoff                = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 6} // id-pkix-ocsp-archive-cutoff
+	OidOCSPServiceLocator               = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 7} // id-pkix-ocsp-service-locator
+	OidOCSPPreferredSignatureAlgorithms = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 8} // id-pkix-ocsp-pref-sig-algs
+	OidOCSPExtendedRevoke               = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 9} // id-pkix-ocsp-extended-revoke
+
+	OidASN1SHA1                 = asn1.ObjectIdentifier{1, 3, 14, 3, 2, 26}
+	OidASN1SHA224               = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 1, 4}
+	OidASN1SHA256               = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 1}
+	OidASN1SHA384               = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 2}
+	OidASN1SHA512               = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 3}
+	OidMD5WithRSA               = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 4}
+	OidSignatureSHA1WithRSA     = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 5}
+	OidMGF1                     = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 8}
+	OidRSASSAPSS                = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 10}
+	OidSignatureSHA256WithRSA   = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 11}
+	OidSignatureSHA384WithRSA   = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 12}
+	OidSignatureSHA512WithRSA   = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 13}
+	OidSignatureECDSAWithSHA1   = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 1}
+	OidSignatureECDSAWithSHA256 = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 2}
+	OidSignatureECDSAWithSHA384 = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 3}
+	OidSignatureECDSAWithSHA512 = asn1.ObjectIdentifier{1, 2, 840, 10045, 4, 3, 4}
 
 	// EC Curves
 	OidECP192 = asn1.ObjectIdentifier{1, 2, 840, 10045, 3, 1, 1}
@@ -89,7 +92,10 @@ var (
 	OidPostalCode         = asn1.ObjectIdentifier{2, 5, 4, 17}
 	OidEmail              = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 1}
 
-	OidReasonCode = asn1.ObjectIdentifier{2, 5, 29, 21}
+	OidReasonCode          = asn1.ObjectIdentifier{2, 5, 29, 21}
+	OidHoldInstructionCode = asn1.ObjectIdentifier{2, 5, 29, 23}
+	OidInvalidityDate      = asn1.ObjectIdentifier{2, 5, 29, 24}
+	OidCertificateIssuer   = asn1.ObjectIdentifier{2, 5, 29, 29}
 
 	OidPasswordBasedMAC = asn1.ObjectIdentifier{1, 2, 840, 113533, 7, 66, 13}
 	OidPBMAC1           = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 5, 14}

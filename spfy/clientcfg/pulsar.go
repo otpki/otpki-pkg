@@ -2,13 +2,13 @@ package clientcfg
 
 import (
 	"encoding"
-	"fmt"
 	"log/slog"
 	"strings"
 	"time"
 
 	pulsarclient "github.com/apache/pulsar-client-go/pulsar"
 	pulsarlog "github.com/apache/pulsar-client-go/pulsar/log"
+	"github.com/samber/oops"
 )
 
 var _ encoding.TextUnmarshaler = (*PulsarAuthType)(nil)
@@ -39,7 +39,7 @@ func (t *PulsarAuthType) UnmarshalText(text []byte) error {
 	case "plugin":
 		*t = PulsarAuthTypePlugin
 	default:
-		return fmt.Errorf("invalid pulsar auth type %q", string(text))
+		return oops.Errorf("invalid pulsar auth type %q", string(text))
 	}
 	return nil
 }
@@ -147,6 +147,6 @@ func buildPulsarAuth(cfg PulsarAuthConfig) (pulsarclient.Authentication, error) 
 	case PulsarAuthTypePlugin:
 		return pulsarclient.NewAuthentication(cfg.PluginName, cfg.PluginParams)
 	default:
-		return nil, fmt.Errorf("unsupported pulsar auth type %q", cfg.Type)
+		return nil, oops.Errorf("unsupported pulsar auth type %q", cfg.Type)
 	}
 }

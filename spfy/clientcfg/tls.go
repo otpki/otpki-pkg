@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/samber/oops"
 )
 
 var _ encoding.TextUnmarshaler = (*TLSVersion)(nil)
@@ -50,7 +52,7 @@ func (v *TLSVersion) UnmarshalText(text []byte) error {
 		*v = TLSVersion13
 		return nil
 	default:
-		return fmt.Errorf("invalid TLS version %q", string(text))
+		return oops.Errorf("invalid TLS version %q", string(text))
 	}
 }
 
@@ -93,13 +95,13 @@ func BuildTLSConfig(cfg *TLSConfig) (*tls.Config, error) {
 			pool = x509.NewCertPool()
 		}
 		if !pool.AppendCertsFromPEM(pem) {
-			return nil, fmt.Errorf("failed appending CA bundle %q", cfg.CAFile)
+			return nil, oops.Errorf("failed appending CA bundle %q", cfg.CAFile)
 		}
 		tlsCfg.RootCAs = pool
 	}
 	if cfg.CertFile != "" || cfg.KeyFile != "" {
 		if cfg.CertFile == "" || cfg.KeyFile == "" {
-			return nil, fmt.Errorf("both cert_file and key_file are required for TLS client auth")
+			return nil, oops.Errorf("both cert_file and key_file are required for TLS client auth")
 		}
 		cert, err := tls.LoadX509KeyPair(cfg.CertFile, cfg.KeyFile)
 		if err != nil {

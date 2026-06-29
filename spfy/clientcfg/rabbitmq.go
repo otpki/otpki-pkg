@@ -3,7 +3,6 @@ package clientcfg
 import (
 	"crypto/tls"
 	"encoding"
-	"fmt"
 	"net"
 	"net/url"
 	"strconv"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/samber/oops"
 )
 
 var _ encoding.TextUnmarshaler = (*RabbitMQSASLMechanism)(nil)
@@ -32,7 +32,7 @@ func (m *RabbitMQSASLMechanism) UnmarshalText(text []byte) error {
 	case "external":
 		*m = RabbitMQSASLExternal
 	default:
-		return fmt.Errorf("invalid rabbitmq sasl mechanism %q", string(text))
+		return oops.Errorf("invalid rabbitmq sasl mechanism %q", string(text))
 	}
 	return nil
 }

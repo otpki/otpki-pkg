@@ -99,7 +99,7 @@ func DefaultBackendsConfig() BackendsConfig {
 
 type StateStoreConfig struct {
 	Enabled       bool                       `mapstructure:"enabled"`
-	Backend       StateStoreBackend          `mapstructure:"backend"`
+	Backends      []StateStoreBackend        `mapstructure:"backends"`
 	Memory        anchormemory.Config        `mapstructure:"memory"`
 	Ristretto     anchorristretto.Config     `mapstructure:"ristretto"`
 	Postgres      anchorpostgres.Config      `mapstructure:"postgres"`
@@ -111,7 +111,7 @@ type StateStoreConfig struct {
 func DefaultStateStoreConfig() StateStoreConfig {
 	return StateStoreConfig{
 		Enabled:       true,
-		Backend:       StateStoreBackendRedis,
+		Backends:      []StateStoreBackend{StateStoreBackendMemory, StateStoreBackendRedis},
 		Memory:        anchormemory.DefaultConfig(),
 		Ristretto:     anchorristretto.DefaultConfig(),
 		Postgres:      anchorpostgres.DefaultConfig(),

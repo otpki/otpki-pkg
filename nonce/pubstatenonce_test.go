@@ -53,7 +53,7 @@ func TestPubStateNonceManager(t *testing.T) {
 				t.Helper()
 				cfg := config.DefaultConfig()
 				cfg.StateStore.Enabled = true
-				cfg.StateStore.Backend = config.StateStoreBackendRistretto
+				cfg.StateStore.Backends = []config.StateStoreBackend{config.StateStoreBackendRistretto}
 				return nonceBackendFixture{
 					cfg:   cfg,
 					store: newNonceBackendFromConfig(t, cfg),
@@ -78,7 +78,7 @@ func TestPubStateNonceManager(t *testing.T) {
 
 				cfg := config.DefaultConfig()
 				cfg.StateStore.Enabled = true
-				cfg.StateStore.Backend = config.StateStoreBackendRedis
+				cfg.StateStore.Backends = []config.StateStoreBackend{config.StateStoreBackendRedis}
 				cfg.Backends.Redis.Addrs = []string{mr.Addr()}
 				cfg.StateStore.Redis.Prefix = sanitizedNonceTestName(t)
 				return nonceBackendFixture{
@@ -95,7 +95,7 @@ func TestPubStateNonceManager(t *testing.T) {
 				srv := newJetStreamServer(t)
 				cfg := config.DefaultConfig()
 				cfg.StateStore.Enabled = true
-				cfg.StateStore.Backend = config.StateStoreBackendNATSJetStream
+				cfg.StateStore.Backends = []config.StateStoreBackend{config.StateStoreBackendNATSJetStream}
 				cfg.Backends.NATS.URL = srv.ClientURL()
 				cfg.StateStore.NATSJetStream.StreamName = sanitizedNonceTestName(t)
 				return nonceBackendFixture{
@@ -111,7 +111,7 @@ func TestPubStateNonceManager(t *testing.T) {
 				srv := newJetStreamServer(t)
 				cfg := config.DefaultConfig()
 				cfg.StateStore.Enabled = true
-				cfg.StateStore.Backend = config.StateStoreBackendNATSCore
+				cfg.StateStore.Backends = []config.StateStoreBackend{config.StateStoreBackendNATSCore}
 				cfg.Backends.NATS.URL = srv.ClientURL()
 				cfg.StateStore.NATSCore.Subject = sanitizedNonceTestName(t)
 				return nonceBackendFixture{

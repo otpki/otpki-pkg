@@ -578,7 +578,7 @@ func spfyBackendCases(t *testing.T) []spfyBackendCase {
 
 				return newSpfyBrokerForTest(t, func(cfg *config.Config) {
 					cfg.StateStore.Enabled = true
-					cfg.StateStore.Backend = config.StateStoreBackendRedis
+					cfg.StateStore.Backends = []config.StateStoreBackend{config.StateStoreBackendRedis}
 					cfg.Backends.Redis.Addrs = []string{addr}
 
 					cfg.PubSub.Enabled = true
@@ -596,7 +596,7 @@ func spfyBackendCases(t *testing.T) []spfyBackendCase {
 
 				return newSpfyBrokerForTest(t, func(cfg *config.Config) {
 					cfg.StateStore.Enabled = true
-					cfg.StateStore.Backend = config.StateStoreBackendNATSJetStream
+					cfg.StateStore.Backends = []config.StateStoreBackend{config.StateStoreBackendNATSJetStream}
 					cfg.Backends.NATS.URL = srv.ClientURL()
 					cfg.Backends.NATS.Name = name
 
