@@ -59,7 +59,7 @@ func LoadConfigWithOptions(opts LoadOptions) (Config, error) {
 	v.SetEnvPrefix(EnvPrefix)
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
-	setDefaultsFromStruct(v, "", DefaultConfig())
+	SetDefaultsFromStruct(v, "", DefaultConfig())
 
 	if opts.Values != nil {
 		if err := mergeConfigMap(v, opts.Values); err != nil {
@@ -189,7 +189,7 @@ func readConfigFileWithOptions(v *viper.Viper, opts LoadOptions) error {
 	return nil
 }
 
-func setDefaultsFromStruct(v *viper.Viper, prefix string, s any) {
+func SetDefaultsFromStruct(v *viper.Viper, prefix string, s any) {
 	walkDefaults(v, prefix, reflect.ValueOf(s))
 }
 
