@@ -5,22 +5,28 @@ set dotenv-load := false
 # ------------------------------------------------------------------
 
 root            := justfile_directory()
-tool_path       := root / ".tool"
+tool_path       := root / ".tool/bin"
 
 export PATH := tool_path + ":" + env_var("PATH")
+export AQUA_ROOT_DIR := root + "/.tool"
+export AQUA_DISABLE_POLICY := "true"
 
 default:
     @just --list
 
-# install binny into the tools directory
-binny:
+# -----------------------------
+# aqua bootstrap + installs
+# -----------------------------
+
+# install aqua into the tools directory
+aqua:
     mkdir -p {{tool_path}}
-    test -x {{tool_path}}/binny || curl -sSfL https://get.anchore.io/binny | sh -s -- -b {{tool_path}}
+    test -x {{tool_path}}/aqua || curl -sSfL https://raw.githubusercontent.com/aquaproj/aqua-installer/v4.0.2/aqua-installer | bash
 
-tools:
-    {{tool_path}}/binny install
+tools *tags:
+    aqua install {{ if tags == "" { "" } else { "-t " + replace(tags, " ", " -t ") } }}
 
-check: binny tools test-ci # todo: fmt/lint
+check: aqua tools test-ci # todo: fmt/lint
     go mod tidy
 
 format target="":
