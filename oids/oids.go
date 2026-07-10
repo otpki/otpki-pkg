@@ -28,6 +28,7 @@ var (
 	OidExtKeyUsage                = asn1.ObjectIdentifier{2, 5, 29, 37} // id-ce-extKeyUsage
 	OidNameConstraints            = asn1.ObjectIdentifier{2, 5, 29, 30}
 	OidCrlDistributionPoints      = asn1.ObjectIdentifier{2, 5, 29, 31}
+	OidFreshestCrl                = asn1.ObjectIdentifier{2, 5, 29, 46} // id-ce-freshestCRL delta crl cdp
 	OidCARepoLocation             = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 5}
 	OidAttributeChangeSubjectName = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 36}
 
