@@ -11,7 +11,7 @@ on:
 
 jobs:
   check:
-    runs-on: BIGBOY
+    runs-on: ubuntu-latest
     env:
       AWS_ARTIFACT_BUCKET_NAME: ${{ vars.AWS_ARTIFACT_BUCKET_NAME }}
       AWS_REGION: ${{ vars.AWS_REGION }}
@@ -28,11 +28,7 @@ jobs:
         owner: otpki
         repositories: |
           ${{ github.event.repository.name }}
-          otpki
-          otpki-pkcs11-proxy
-          otpki-protobuf-private
           otpki-protobuf
-          otpki-pkg
           scep
 
     - name: Configure git for private GitHub deps

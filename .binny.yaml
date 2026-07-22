@@ -1,7 +1,0 @@
-tools:
-  - name: golangci-lint
-    version:
-      want: v2.12.2
-    method: github-release
-    with:
-      repo: golangci/golangci-lint
