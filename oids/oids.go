@@ -157,4 +157,7 @@ var (
 	OidRSASSAPSSWithSHAKE256 = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 31}
 	OidECDSAWithSHAKE128     = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 32}
 	OidECDSAWithSHAKE256     = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 33}
+
+	// ACME OID
+	OidACMEIdentifier = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 1, 31}
 )
