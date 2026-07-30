@@ -22,6 +22,7 @@ var (
 	OidSubjectAltName             = asn1.ObjectIdentifier{2, 5, 29, 17}
 	OidIssuerAltName              = asn1.ObjectIdentifier{2, 5, 29, 18}
 	OidKerberosPrincipalName      = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 2, 2}
+	OidHardwareModuleName         = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 8, 4}
 	OidDomainComponent            = asn1.ObjectIdentifier{0, 9, 2342, 19200300, 100, 1, 25}
 	OidDeltaCRLIndicator          = asn1.ObjectIdentifier{2, 5, 29, 27}
 	OidKeyUsage                   = asn1.ObjectIdentifier{2, 5, 29, 15}

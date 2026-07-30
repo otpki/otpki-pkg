@@ -297,6 +297,11 @@ type KRB5PrincipalName struct {
 	PrincipalName string `asn1:"explicit,tag:1"`
 }
 
+type HwModuleName struct {
+	HwType      asn1.ObjectIdentifier
+	HwSerialNum []byte
+}
+
 type DistributionPoint struct {
 	DistributionPoint DistributionPointName `asn1:"optional,tag:0"`
 	Reason            asn1.BitString        `asn1:"optional,tag:1"`
