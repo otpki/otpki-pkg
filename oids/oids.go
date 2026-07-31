@@ -45,10 +45,14 @@ var (
 	OidOCSPExtendedRevoke               = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 1, 9} // id-pkix-ocsp-extended-revoke
 
 	OidASN1SHA1                 = asn1.ObjectIdentifier{1, 3, 14, 3, 2, 26}
-	OidASN1SHA224               = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 1, 4}
+	OidASN1SHA224               = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 4}
 	OidASN1SHA256               = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 1}
 	OidASN1SHA384               = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 2}
 	OidASN1SHA512               = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 3}
+	OidASN1SHA3_224             = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 7}
+	OidASN1SHA3_256             = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 8}
+	OidASN1SHA3_384             = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 9}
+	OidASN1SHA3_512             = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 10}
 	OidMD5WithRSA               = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 4}
 	OidSignatureSHA1WithRSA     = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 5}
 	OidMGF1                     = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 8}
@@ -136,8 +140,9 @@ var (
 	// HSS/LMS (RFC 8708)
 	OidHSSLMS = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 16, 3, 17}
 
-	// XMSS (draft-vangeest-x509-hash-sigs)
-	OidXMSS = asn1.ObjectIdentifier{0, 4, 0, 127, 0, 15, 1, 1, 13, 0}
+	// XMSS / XMSS-MT (draft-vangeest-x509-hash-sigs)
+	OidXMSS   = asn1.ObjectIdentifier{0, 4, 0, 127, 0, 15, 1, 1, 13, 0}
+	OidXMSSMT = asn1.ObjectIdentifier{0, 4, 0, 127, 0, 15, 1, 1, 14, 0}
 
 	// EdDSA (RFC 8410)
 	OidEd25519 = asn1.ObjectIdentifier{1, 3, 101, 112}

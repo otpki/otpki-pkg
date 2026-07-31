@@ -37,6 +37,8 @@ linters:
     - unparam
     - unused
   settings:
+    lll:
+      line-length: 130
     revive:
       rules:
         - name: comment-spacings
@@ -55,4 +57,4 @@ formatters:
     - golines
   settings:
     golines:
-      max-len: 120
+      max-len: 130
