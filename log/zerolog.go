@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+	"go.opentelemetry.io/otel/attribute"
 	otellog "go.opentelemetry.io/otel/log"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -22,7 +23,7 @@ type zerologEvent struct {
 	event *zerolog.Event
 	level zerolog.Level
 	ctx   context.Context
-	attrs []otellog.KeyValue
+	attrs []attribute.KeyValue
 	ot    otellog.Logger
 }
 
@@ -70,7 +71,7 @@ func newEvent(event *zerolog.Event, level zerolog.Level, otelLogger otellog.Logg
 		event: event,
 		level: level,
 		ctx:   event.GetCtx(),
-		attrs: []otellog.KeyValue{},
+		attrs: []attribute.KeyValue{},
 		ot:    otelLogger,
 	}
 }
@@ -196,10 +197,10 @@ func (e *zerologEvent) addTraceContextFields() {
 }
 
 func appendIfMissingOTelString(
-	attrs []otellog.KeyValue,
+	attrs []attribute.KeyValue,
 	key string,
 	val string,
-) []otellog.KeyValue {
+) []attribute.KeyValue {
 	for _, attr := range attrs {
 		if string(attr.Key) == key {
 			return attrs
@@ -220,10 +221,10 @@ func (e *zerologEvent) emit(msg string) {
 	r.SetSeverity(convertLevelZtoOtel(e.level))
 
 	if msg != "" {
-		r.SetBody(otellog.StringValue(msg))
+		r.SetBody(attribute.StringValue(msg))
 	}
 
-	attrs := append([]otellog.KeyValue(nil), e.attrs...)
+	attrs := append([]attribute.KeyValue(nil), e.attrs...)
 
 	if sc := trace.SpanContextFromContext(e.event.GetCtx()); sc.IsValid() {
 		attrs = appendIfMissingOTelString(attrs, "trace_id", sc.TraceID().String())
@@ -237,8 +238,8 @@ func (e *zerologEvent) emit(msg string) {
 	e.ot.Emit(e.ctx, r)
 }
 
-func kvStr(key string, val string) otellog.KeyValue {
-	return otellog.String(key, val)
+func kvStr(key string, val string) attribute.KeyValue {
+	return attribute.String(key, val)
 }
 
 func (e *zerologEvent) AnErr(key string, err error) Event {
