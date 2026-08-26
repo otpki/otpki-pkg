@@ -109,11 +109,11 @@ func AlgIDFromSigAlg(sa x509.SignatureAlgorithm) (oid asn1.ObjectIdentifier, par
 	case x509.PureEdDilithium2, x509.PureEdDilithium3, x509.PureDilithium2, x509.PureDilithium3, x509.PureDilithium5:
 		return nil, nil, oops.In(ServiceName).Errorf("no stable OID mapping provided for %v (wire your own or prefer ML-DSA)", sa)
 
-	case x509.PureMLDSA44:
+	case x509.MLDSA44:
 		return oids.OidMLDSA44, nil, nil
-	case x509.PureMLDSA65:
+	case x509.MLDSA65:
 		return oids.OidMLDSA65, nil, nil
-	case x509.PureMLDSA87:
+	case x509.MLDSA87:
 		return oids.OidMLDSA87, nil, nil
 
 	case x509.SLHDSAWithSHA128s:
@@ -242,11 +242,11 @@ func SigAlgFromAlgID(oid asn1.ObjectIdentifier, params *asn1.RawValue) (x509.Sig
 
 	// ML-DSA
 	case oid.Equal(oids.OidMLDSA44):
-		return x509.PureMLDSA44, nil
+		return x509.MLDSA44, nil
 	case oid.Equal(oids.OidMLDSA65):
-		return x509.PureMLDSA65, nil
+		return x509.MLDSA65, nil
 	case oid.Equal(oids.OidMLDSA87):
-		return x509.PureMLDSA87, nil
+		return x509.MLDSA87, nil
 
 	// Hash-SLH-DSA
 	case oid.Equal(oids.OidSLHDSASHA2_128s):
@@ -409,9 +409,9 @@ func isHashlessSignatureAlgorithm(sigAlg x509.SignatureAlgorithm) bool {
 	switch sigAlg {
 	case x509.PureEd25519,
 		x509.PureEd448,
-		x509.PureMLDSA44,
-		x509.PureMLDSA65,
-		x509.PureMLDSA87,
+		x509.MLDSA44,
+		x509.MLDSA65,
+		x509.MLDSA87,
 		x509.SLHDSAWithSHA128s,
 		x509.SLHDSAWithSHAKE128s,
 		x509.SLHDSAWithSHA128f,
