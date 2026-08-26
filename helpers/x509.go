@@ -393,13 +393,18 @@ func BuildSubjectAltNameExtension(dnsNames []string, emails []string, ips []net.
 		if err != nil {
 			return nil, oops.In(ServiceName).Wrapf(err, "marshalling otherName")
 		}
+		var sequenceContent asn1.RawValue
+		_, err = asn1.Unmarshal(raw, &sequenceContent)
+		if err != nil {
+			return nil, oops.In(ServiceName).Wrapf(err, "unmarshalling otherName sequence")
+		}
 
 		// Add to the list of raw values with context-specific tag 0
 		rawValues = append(rawValues, asn1.RawValue{
 			Class:      2, // Context-specific class (2)
 			Tag:        nameTagOtherName,
 			IsCompound: true,
-			FullBytes:  raw,
+			Bytes:      sequenceContent.Bytes,
 		})
 	}
 
