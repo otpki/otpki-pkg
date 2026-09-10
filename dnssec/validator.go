@@ -1,0 +1,505 @@
+// Derived from github.com/folbricht/routedns/dnssec at commit 2d34b9565853910155a89c499556175a72b1f47b.
+// Copyright (c) 2019, Frank Olbricht. Licensed under the BSD 3-Clause License; see LICENSE.
+
+package dnssec
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"math"
+	"slices"
+	"strings"
+	"time"
+
+	"codeberg.org/miekg/dns"
+	"codeberg.org/miekg/dns/dnsutil"
+	"codeberg.org/miekg/dns/rdata"
+)
+
+var (
+	ErrNoSignature          = errors.New("dnssec: no RRSIG for RRset")
+	ErrNoKey                = errors.New("dnssec: no matching DNSKEY")
+	ErrSignatureInvalid     = errors.New("dnssec: signature verification failed")
+	ErrSignatureExpired     = errors.New("dnssec: RRSIG outside its validity period")
+	ErrDSMismatch           = errors.New("dnssec: DNSKEY doesn't match DS")
+	ErrNoTrustAnchor        = errors.New("dnssec: no trust anchor")
+	ErrInsecureDelegation   = errors.New("dnssec: insecure delegation")
+	ErrSignerOutOfBailiwick = errors.New("dnssec: RRSIG signer name out of bailiwick")
+	ErrDenialOfExistence    = errors.New("dnssec: denial of existence not proven")
+	ErrNoResolver           = errors.New("dnssec: no resolver configured")
+)
+
+type Validator struct {
+	ks *keystore
+
+	now      func() time.Time
+	resolver func(context.Context, *dns.Msg) (*dns.Msg, error)
+}
+
+type ValidatorOption func(*Validator)
+
+// WithTime allows tests to set the current time. Defaults to time.Now
+func WithTime(f func() time.Time) ValidatorOption {
+	return func(v *Validator) {
+		v.now = f
+	}
+}
+
+// WithResolver sets the function used to resolve DNSKEY and DS records.
+func WithResolver(f func(q *dns.Msg) (*dns.Msg, error)) ValidatorOption {
+	return func(v *Validator) {
+		v.resolver = func(_ context.Context, q *dns.Msg) (*dns.Msg, error) { return f(q) }
+	}
+}
+
+// WithContextResolver sets the context-aware function used to resolve DNSKEY
+// and DS records while validating a response.
+func WithContextResolver(f func(context.Context, *dns.Msg) (*dns.Msg, error)) ValidatorOption {
+	return func(v *Validator) {
+		v.resolver = f
+	}
+}
+
+func NewValidator(opts ...ValidatorOption) *Validator {
+	v := &Validator{
+		now: time.Now,
+	}
+	for _, opt := range opts {
+		opt(v)
+	}
+	v.ks = newKeystore(v.now)
+	return v
+}
+
+// SetAnchor adds a trust anchor to the validator. Typically the owner would be "." for the root key,
+// but other anchors on sub-domains can be set as well. Inserts a permanent (max TTL) DS record for
+// the given owner.
+func (v *Validator) SetAnchor(owner string, tag uint16, alg, digestType uint8, digest string) {
+	ds := &dns.DS{
+		Hdr: dns.Header{
+			Name:  dnsutil.Canonical(owner),
+			Class: dns.ClassINET,
+			TTL:   math.MaxUint32,
+		},
+		DS: rdata.DS{
+			KeyTag:     tag,
+			Algorithm:  alg,
+			DigestType: digestType,
+			Digest:     strings.ToUpper(digest),
+		},
+	}
+	v.ks.addDS(owner, ds)
+}
+
+// Validate checks the DNSSEC signatures in a DNS response message.
+// It groups the answer section into RRsets, finds covering RRSIGs,
+// and validates each signed RRset against a chain of trust.
+func (v *Validator) Validate(answer *dns.Msg) error {
+	return v.ValidateContext(context.Background(), answer)
+}
+
+// ValidateContext checks the DNSSEC signatures in a DNS response message and
+// applies ctx to the DNSKEY and DS lookups needed to build its chain of trust.
+func (v *Validator) ValidateContext(ctx context.Context, answer *dns.Msg) error {
+	if v.resolver == nil {
+		return ErrNoResolver
+	}
+	if answer == nil {
+		return fmt.Errorf("dnssec: response is nil")
+	}
+	if len(answer.Answer) == 0 {
+		return v.validateDenial(ctx, answer)
+	}
+
+	rrsets, sigs := groupRRsByTypeAndName(answer.Answer)
+
+	for key, rrset := range rrsets {
+		rrsigs := sigs[key]
+		if len(rrsigs) == 0 {
+			// Check if this is an insecure delegation by looking for DS in parent
+			zone := rrset[0].Header().Name
+			if err := v.checkInsecureDelegation(ctx, zone); err != nil {
+				return err
+			}
+			return fmt.Errorf("%w: %s/%s", ErrNoSignature, key.name, dns.TypeToString[key.rrtype])
+		}
+		if err := v.validateRRset(ctx, rrset, rrsigs); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// checkInsecureDelegation walks the delegation chain from the root toward
+// name, returning ErrInsecureDelegation at the first cut where the parent
+// authentically proves (via signed NSEC/NSEC3) that no DS record exists.
+// An empty DS response without such proof is bogus, not insecure
+// (RFC 4035 §5.2, RFC 6840 §5.2).
+func (v *Validator) checkInsecureDelegation(ctx context.Context, name string) error {
+	name = dnsutil.Canonical(name)
+	if name == "." {
+		return nil
+	}
+	labels := dnsutil.Split(name)
+	for i := len(labels) - 1; i >= 0; i-- {
+		zone := dnsutil.Fqdn(strings.Join(labels[i:], "."))
+		insecure, err := v.proveNoDS(ctx, zone)
+		if err != nil {
+			return err
+		}
+		if insecure {
+			return fmt.Errorf("%w: %s", ErrInsecureDelegation, zone)
+		}
+	}
+	return nil
+}
+
+// proveNoDS returns true when zone has no DS RRset and that absence is
+// authenticated by the parent zone's signed NSEC/NSEC3. It returns false when
+// DS records are present, and an error when the absence cannot be
+// authenticated.
+func (v *Validator) proveNoDS(ctx context.Context, zone string) (bool, error) {
+	ds, _, resp, err := v.lookupDS(ctx, zone)
+	if err != nil {
+		return false, err
+	}
+	if len(ds) > 0 {
+		return false, nil
+	}
+	parent := parentZone(zone)
+	parentZSK, _, err := v.buildChainOfTrust(ctx, parent)
+	if err != nil {
+		if errors.Is(err, ErrInsecureDelegation) {
+			return true, nil
+		}
+		return false, err
+	}
+	if err := verifyDSDenial(resp, zone, parentZSK, v.now()); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// validateRRset validates a set of RRs against the provided RRSIGs by building
+// a chain of trust to each signer's DNSKEY. An RRset is accepted as soon as one
+// of its RRSIGs verifies; this tolerates ZSK rollovers, where the set carries
+// signatures from both the outgoing and incoming keys and only one is valid
+// against the currently-published DNSKEY RRset.
+func (v *Validator) validateRRset(ctx context.Context, rrset []dns.RR, sigs []*dns.RRSIG) error {
+	owner := dnsutil.Canonical(rrset[0].Header().Name)
+	var lastErr error
+	for _, sig := range sigs {
+		// RFC 4035 §5.3.1: the RRSIG Signer's Name MUST be the zone that
+		// contains the RRset, i.e. equal to or an ancestor of the owner name.
+		// miekg/dns Verify() only does a textual strings.HasSuffix check, so a
+		// signer "tim." would be accepted for owner "victim." — enforce a
+		// label-aware comparison here before fetching keys for the signer.
+		signer := dnsutil.Canonical(sig.SignerName)
+		// isSubDomain(parent, child): true when child is at or below parent.
+		if !isSubDomain(signer, owner) {
+			lastErr = fmt.Errorf("%w: %s cannot sign %s", ErrSignerOutOfBailiwick, signer, owner)
+			continue
+		}
+		zsk, _, err := v.buildChainOfTrust(ctx, signer)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		if err := verifyRRSIG(sig, zsk, rrset, v.now()); err != nil {
+			lastErr = err
+			continue
+		}
+		return nil
+	}
+	return lastErr
+}
+
+// buildChainOfTrust recursively builds a DNSSEC chain of trust from
+// the root trust anchor down to the specified zone. It returns the
+// validated ZSK and KSK for the zone.
+func (v *Validator) buildChainOfTrust(ctx context.Context, zone string) (zsk, ksk []*dns.DNSKEY, err error) {
+	zone = dnsutil.Canonical(zone)
+
+	// Check cache first
+	if zsk, ksk := v.ks.getDNSKEY(zone); zsk != nil || ksk != nil {
+		return zsk, ksk, nil
+	}
+
+	// Fetch DNSKEY records for this zone
+	fetchedZSK, fetchedKSK, dnsSigs, err := v.lookupDNSKEY(ctx, zone)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to lookup DNSKEY for %s: %w", zone, err)
+	}
+	if len(fetchedKSK) == 0 {
+		return nil, nil, fmt.Errorf("%w: no KSK for %s", ErrNoKey, zone)
+	}
+
+	allKeys := make([]dns.RR, 0, len(fetchedZSK)+len(fetchedKSK))
+	for _, k := range fetchedZSK {
+		allKeys = append(allKeys, k)
+	}
+	for _, k := range fetchedKSK {
+		allKeys = append(allKeys, k)
+	}
+
+	// Obtain authenticated DS records for this zone — from the configured
+	// trust anchor for the root, or by recursing into the parent otherwise.
+	var dsRecords []*dns.DS
+	if anchors := v.ks.getDS(zone); len(anchors) > 0 {
+		dsRecords = anchors
+	} else if zone == "." {
+		return nil, nil, ErrNoTrustAnchor
+	} else {
+		var (
+			dsSigs []*dns.RRSIG
+			dsResp *dns.Msg
+		)
+		dsRecords, dsSigs, dsResp, err = v.lookupDS(ctx, zone)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to lookup DS for %s: %w", zone, err)
+		}
+
+		parent := parentZone(zone)
+		parentZSK, _, err := v.buildChainOfTrust(ctx, parent)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to build chain of trust for parent %s: %w", parent, err)
+		}
+
+		if len(dsRecords) == 0 {
+			if err := verifyDSDenial(dsResp, zone, parentZSK, v.now()); err != nil {
+				return nil, nil, err
+			}
+			return nil, nil, fmt.Errorf("%w: %s", ErrInsecureDelegation, zone)
+		}
+		if len(dsSigs) == 0 {
+			return nil, nil, fmt.Errorf("%w: DS for %s", ErrNoSignature, zone)
+		}
+
+		dsRRset := make([]dns.RR, len(dsRecords))
+		for i, d := range dsRecords {
+			dsRRset[i] = d
+		}
+		var verified bool
+		for _, dsSig := range dsSigs {
+			if err := verifyRRSIG(dsSig, parentZSK, dsRRset, v.now()); err == nil {
+				verified = true
+				break
+			}
+		}
+		if !verified {
+			return nil, nil, fmt.Errorf("%w: DS RRSIG for %s", ErrSignatureInvalid, zone)
+		}
+	}
+
+	// RFC 4035 §5.2: the DNSKEY RRset must be signed by a key that itself
+	// chains to an authenticated DS. Restrict candidate signing keys to
+	// those matching a DS before accepting the self-signature.
+	trustedKSK := filterKeysByDS(fetchedKSK, dsRecords)
+	if len(trustedKSK) == 0 {
+		return nil, nil, fmt.Errorf("KSK doesn't match DS for %s: %w", zone, ErrDSMismatch)
+	}
+
+	var sigSeen, sigVerified bool
+	for _, sig := range dnsSigs {
+		if dnsutil.Canonical(sig.SignerName) != zone || sig.TypeCovered != dns.TypeDNSKEY {
+			continue
+		}
+		sigSeen = true
+		if err := verifyRRSIG(sig, trustedKSK, allKeys, v.now()); err == nil {
+			sigVerified = true
+			break
+		}
+	}
+	if !sigSeen {
+		return nil, nil, fmt.Errorf("%w: no RRSIG covering DNSKEY for %s", ErrNoSignature, zone)
+	}
+	if !sigVerified {
+		return nil, nil, fmt.Errorf("DNSKEY self-signature verification failed for %s: %w", zone, ErrSignatureInvalid)
+	}
+
+	// Cache the validated keys
+	allDNSKEYs := slices.Concat(fetchedZSK, fetchedKSK)
+	v.ks.addDNSKEY(zone, allDNSKEYs)
+
+	return fetchedZSK, fetchedKSK, nil
+}
+
+// lookupDNSKEY queries for DNSKEY records for the given zone and returns
+// the ZSKs, KSKs, and RRSIGs from the response.
+func (v *Validator) lookupDNSKEY(ctx context.Context, name string) (zsk, ksk []*dns.DNSKEY, sigs []*dns.RRSIG, err error) {
+	q := dns.NewMsg(dnsutil.Canonical(name), dns.TypeDNSKEY)
+	q.UDPSize = 4096
+	q.Security = true
+	q.CheckingDisabled = true
+	a, err := v.resolver(ctx, q)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if a.Rcode != dns.RcodeSuccess {
+		return nil, nil, nil, fmt.Errorf("DNSKEY lookup for %q failed: rcode %s", name, dns.RcodeToString[a.Rcode])
+	}
+	for _, rr := range a.Answer {
+		switch r := rr.(type) {
+		case *dns.DNSKEY:
+			switch r.Flags {
+			case 257:
+				ksk = append(ksk, r)
+			case 256:
+				zsk = append(zsk, r)
+			}
+		case *dns.RRSIG:
+			sigs = append(sigs, r)
+		}
+	}
+	return
+}
+
+// lookupDS queries for DS records for the given zone and returns the DS
+// records, their covering RRSIGs, and the full response so callers can
+// inspect the authority section for NSEC/NSEC3 denial.
+func (v *Validator) lookupDS(ctx context.Context, name string) ([]*dns.DS, []*dns.RRSIG, *dns.Msg, error) {
+	q := dns.NewMsg(dnsutil.Canonical(name), dns.TypeDS)
+	q.UDPSize = 4096
+	q.Security = true
+	q.CheckingDisabled = true
+	a, err := v.resolver(ctx, q)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	var (
+		ds   []*dns.DS
+		sigs []*dns.RRSIG
+	)
+	if a.Rcode == dns.RcodeSuccess {
+		for _, rr := range a.Answer {
+			switch r := rr.(type) {
+			case *dns.DS:
+				ds = append(ds, r)
+			case *dns.RRSIG:
+				if r.TypeCovered == dns.TypeDS {
+					sigs = append(sigs, r)
+				}
+			}
+		}
+	}
+	return ds, sigs, a, nil
+}
+
+// parentZone returns the parent zone of the given zone name.
+// "example.com." → "com.", "com." → "."
+func parentZone(name string) string {
+	name = dnsutil.Canonical(name)
+	if name == "." {
+		return "."
+	}
+	_, parent, found := strings.Cut(name, ".")
+	if !found || parent == "" {
+		return "."
+	}
+	return parent
+}
+
+// findKeysByTag returns DNSKEY records matching the given key tag and algorithm.
+func findKeysByTag(keys []*dns.DNSKEY, tag uint16, alg uint8) []*dns.DNSKEY {
+	var result []*dns.DNSKEY
+	for _, key := range keys {
+		if key.KeyTag() == tag && key.Algorithm == alg {
+			result = append(result, key)
+		}
+	}
+	return result
+}
+
+// verifyRRSIG attempts to verify an RRSIG against a set of keys and an RRset.
+// It returns nil on the first successful verification.
+//
+// miekg/dns RRSIG.Verify() performs only the cryptographic check and
+// deliberately ignores the signature's validity period (RFC 4035 §5.3.1
+// step 3 is the caller's responsibility), so the Inception/Expiration window
+// is enforced separately here against now. Without this, an attacker could
+// replay a previously legitimate but expired signature.
+func verifyRRSIG(sig *dns.RRSIG, keys []*dns.DNSKEY, rrset []dns.RR, now time.Time) error {
+	if !sig.ValidPeriod(now) {
+		return fmt.Errorf("%w: inception=%d expiration=%d", ErrSignatureExpired, sig.Inception, sig.Expiration)
+	}
+	matching := findKeysByTag(keys, sig.KeyTag, sig.Algorithm)
+	if len(matching) == 0 {
+		return fmt.Errorf("%w: tag=%d alg=%d", ErrNoKey, sig.KeyTag, sig.Algorithm)
+	}
+	var lastErr error
+	for _, key := range matching {
+		if err := sig.Verify(key, rrset, new(dns.SignOption)); err == nil {
+			return nil
+		} else {
+			lastErr = err
+		}
+	}
+	return fmt.Errorf("%w: %v", ErrSignatureInvalid, lastErr)
+}
+
+// verifyAnyRRSIG reports whether any of the given RRSIGs verifies against the
+// supplied keys and RRset. It is used where the signer's keys are already known
+// (e.g. NSEC/NSEC3 denial), so the RRset is authenticated as soon as one
+// signature checks out, tolerating multiple RRSIGs from a key rollover.
+func verifyAnyRRSIG(sigs []*dns.RRSIG, keys []*dns.DNSKEY, rrset []dns.RR, now time.Time) bool {
+	for _, sig := range sigs {
+		if verifyRRSIG(sig, keys, rrset, now) == nil {
+			return true
+		}
+	}
+	return false
+}
+
+// filterKeysByDS returns the subset of keys whose computed DS digest matches
+// one of the provided DS records.
+func filterKeysByDS(keys []*dns.DNSKEY, ds []*dns.DS) []*dns.DNSKEY {
+	var result []*dns.DNSKEY
+	for _, key := range keys {
+		for _, d := range ds {
+			computed := key.ToDS(d.DigestType)
+			if computed == nil {
+				continue
+			}
+			if strings.EqualFold(computed.Digest, d.Digest) {
+				result = append(result, key)
+				break
+			}
+		}
+	}
+	return result
+}
+
+// rrsetKey identifies an RRset by name and type.
+type rrsetKey struct {
+	name   string
+	rrtype uint16
+}
+
+// groupRRsByTypeAndName groups the RRs in a section into RRsets keyed by
+// (canonical name, type) and extracts all covering RRSIGs. An RRset can carry
+// more than one RRSIG (e.g. during a ZSK rollover, where it is signed by both
+// the outgoing and incoming key); all are kept so callers can accept the RRset
+// if any signature verifies.
+func groupRRsByTypeAndName(section []dns.RR) (map[rrsetKey][]dns.RR, map[rrsetKey][]*dns.RRSIG) {
+	rrsets := make(map[rrsetKey][]dns.RR)
+	sigs := make(map[rrsetKey][]*dns.RRSIG)
+
+	for _, rr := range section {
+		if sig, ok := rr.(*dns.RRSIG); ok {
+			key := rrsetKey{
+				name:   dnsutil.Canonical(sig.Hdr.Name),
+				rrtype: sig.TypeCovered,
+			}
+			sigs[key] = append(sigs[key], sig)
+			continue
+		}
+		key := rrsetKey{
+			name:   dnsutil.Canonical(rr.Header().Name),
+			rrtype: dns.RRToType(rr),
+		}
+		rrsets[key] = append(rrsets[key], rr)
+	}
+
+	return rrsets, sigs
+}

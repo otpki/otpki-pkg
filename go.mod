@@ -3,6 +3,7 @@ module github.com/otpki/otpki-pkg
 go 1.27.0
 
 require (
+	codeberg.org/miekg/dns v0.6.101
 	connectrpc.com/connect v1.20.0
 	github.com/apache/pulsar-client-go v0.21.0
 	github.com/dapr/kit v0.18.3

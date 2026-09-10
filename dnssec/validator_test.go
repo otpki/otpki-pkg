@@ -1,0 +1,304 @@
+// Derived from github.com/folbricht/routedns/dnssec at commit 2d34b9565853910155a89c499556175a72b1f47b.
+// Copyright (c) 2019, Frank Olbricht. Licensed under the BSD 3-Clause License; see LICENSE.
+
+package dnssec
+
+import (
+	"math"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"codeberg.org/miekg/dns"
+	"codeberg.org/miekg/dns/dnsutil"
+	"codeberg.org/miekg/dns/rdata"
+	"github.com/stretchr/testify/require"
+)
+
+func TestParentZone(t *testing.T) {
+	tests := []struct {
+		input, expected string
+	}{
+		{"example.com.", "com."},
+		{"com.", "."},
+		{".", "."},
+		{"sub.example.com.", "example.com."},
+	}
+	for _, tc := range tests {
+		t.Run(tc.input, func(t *testing.T) {
+			require.Equal(t, tc.expected, parentZone(tc.input))
+		})
+	}
+}
+
+func TestGroupRRsByTypeAndName(t *testing.T) {
+	rr1, _ := dns.New("example.com. 300 IN A 1.2.3.4")
+	rr2, _ := dns.New("example.com. 300 IN A 5.6.7.8")
+	rr3, _ := dns.New("example.com. 300 IN AAAA ::1")
+	sig1, _ := dns.New("example.com. 300 IN RRSIG A 13 2 300 20300101000000 20200101000000 12345 example.com. AAAA==")
+
+	rrsets, sigs := groupRRsByTypeAndName([]dns.RR{rr1, rr2, rr3, sig1})
+
+	aKey := rrsetKey{name: "example.com.", rrtype: dns.TypeA}
+	aaaaKey := rrsetKey{name: "example.com.", rrtype: dns.TypeAAAA}
+
+	require.Len(t, rrsets[aKey], 2)
+	require.Len(t, rrsets[aaaaKey], 1)
+	require.Len(t, sigs[aKey], 1)
+	require.Empty(t, sigs[aaaaKey])
+}
+
+func TestFilterKeysByDS(t *testing.T) {
+	// Use the real IANA root KSK for this test
+	rootKSKRR, err := dns.New(". 172800 IN DNSKEY 257 3 8 AwEAAaz/tAm8yTn4Mfeh5eyI96WSVexTBAvkMgJzkKTOiW1vkIbzxeF3 +/4RgWOq7HrxRixHlFlExOLAJr5emLvN7SWXgnLh4+B5xQlNVz8Og8kv ArMtNROxVQuCaSnIDdD5LKyWbRd2n9WGe2R8PzgCmr3EgVLrjyBxWezF 0jLHwVN8efS3rCj/EWgvIWgb9tarpVUDK/b58Da+sqqls3eNbuv7pr+e oZG+SrDK6nWeL3c6H5Apxz7LjVc1uTIdsIXxuOLYA4/ilBmSVIzuDWfd RUfhHdY6+cn8HFRm+2hM8AnXGXws9555KrUB5qihylGa8subX2Nn6UwN R1AkUTV74bU=")
+	require.NoError(t, err)
+	rootKSK := rootKSKRR.(*dns.DNSKEY)
+
+	// Compute expected DS
+	ds := rootKSK.ToDS(dns.SHA256)
+	require.NotNil(t, ds)
+
+	// Matching should return the key
+	matched := filterKeysByDS([]*dns.DNSKEY{rootKSK}, []*dns.DS{ds})
+	require.Len(t, matched, 1)
+	require.Same(t, rootKSK, matched[0])
+
+	// Wrong digest should return nothing
+	badDS := *ds
+	badDS.Digest = "0000000000000000000000000000000000000000000000000000000000000000"
+	matched = filterKeysByDS([]*dns.DNSKEY{rootKSK}, []*dns.DS{&badDS})
+	require.Empty(t, matched)
+}
+
+func TestValidateNoRRSIG(t *testing.T) {
+	// A response with records but no RRSIG, where the follow-up DS lookup
+	// returns empty without authenticated denial, must be treated as bogus.
+	v := NewValidator(
+		WithResolver(func(q *dns.Msg) (*dns.Msg, error) {
+			a := new(dns.Msg)
+			dnsutil.SetReply(a, q)
+			return a, nil
+		}),
+	)
+
+	answer := new(dns.Msg)
+	dnsutil.SetQuestion(answer, "example.com.", dns.TypeA)
+	rr, _ := dns.New("example.com. 300 IN A 1.2.3.4")
+	answer.Answer = []dns.RR{rr}
+
+	err := v.Validate(answer)
+	require.Error(t, err)
+	require.NotErrorIs(t, err, ErrInsecureDelegation)
+}
+
+func TestValidateEmptyAnswer(t *testing.T) {
+	// An empty answer (NXDOMAIN/NODATA) must no longer be accepted
+	// unconditionally; without an authenticated NSEC/NSEC3 proof of denial it
+	// cannot be validated and must be reported as an error.
+	v := NewValidator(
+		WithResolver(func(q *dns.Msg) (*dns.Msg, error) {
+			a := new(dns.Msg)
+			dnsutil.SetReply(a, q)
+			return a, nil
+		}),
+	)
+	answer := new(dns.Msg)
+	dnsutil.SetQuestion(answer, "example.com.", dns.TypeA)
+	err := v.Validate(answer)
+	require.Error(t, err)
+}
+
+func TestValidateRequiresResolver(t *testing.T) {
+	t.Parallel()
+
+	err := NewValidator().Validate(new(dns.Msg))
+	require.ErrorIs(t, err, ErrNoResolver)
+}
+
+func TestKeystoreCaching(t *testing.T) {
+	now := time.Now()
+	ks := newKeystore(func() time.Time { return now })
+
+	zskRR, _ := dns.New("example.com. 3600 IN DNSKEY 256 3 13 dGVzdA==")
+	kskRR, _ := dns.New("example.com. 3600 IN DNSKEY 257 3 13 dGVzdA==")
+
+	ks.addDNSKEY("example.com.", []*dns.DNSKEY{zskRR.(*dns.DNSKEY), kskRR.(*dns.DNSKEY)})
+
+	zsk, ksk := ks.getDNSKEY("example.com.")
+	require.Len(t, zsk, 1)
+	require.Len(t, ksk, 1)
+
+	// Second call should return cached values
+	zsk2, ksk2 := ks.getDNSKEY("example.com.")
+	require.Equal(t, zsk, zsk2)
+	require.Equal(t, ksk, ksk2)
+}
+
+func TestKeystoreTTLExpiry(t *testing.T) {
+	now := time.Now()
+	currentTime := now
+	ks := newKeystore(func() time.Time { return currentTime })
+
+	zskRR, _ := dns.New("example.com. 60 IN DNSKEY 256 3 13 dGVzdA==")
+	ks.addDNSKEY("example.com.", []*dns.DNSKEY{zskRR.(*dns.DNSKEY)})
+
+	// Should be in cache
+	zsk, _ := ks.getDNSKEY("example.com.")
+	require.Len(t, zsk, 1)
+
+	// Advance past TTL
+	currentTime = now.Add(61 * time.Second)
+
+	// Should be expired
+	zsk, _ = ks.getDNSKEY("example.com.")
+	require.Nil(t, zsk)
+}
+
+func TestKeystoreDSExpiry(t *testing.T) {
+	now := time.Now()
+	currentTime := now
+	ks := newKeystore(func() time.Time { return currentTime })
+
+	ds := &dns.DS{
+		Hdr: dns.Header{
+			Name: "example.com.", Class: dns.ClassINET, TTL: 60,
+		},
+		DS: rdata.DS{KeyTag: 12345, Algorithm: dns.RSASHA256, DigestType: dns.SHA256, Digest: "ABCD"},
+	}
+	ks.addDS("example.com.", ds)
+
+	// Should be in cache
+	result := ks.getDS("example.com.")
+	require.Len(t, result, 1)
+
+	// Advance past TTL
+	currentTime = now.Add(61 * time.Second)
+
+	// Should be expired
+	result = ks.getDS("example.com.")
+	require.Nil(t, result)
+}
+
+// TestKeystoreDSMerge verifies that adding multiple DS records for the same
+// owner accumulates them rather than replacing, so that multiple trust anchors
+// (e.g. the root KSK-2017 and KSK-2024) all remain usable.
+func TestKeystoreDSMerge(t *testing.T) {
+	now := time.Now()
+	currentTime := now
+	ks := newKeystore(func() time.Time { return currentTime })
+
+	newDS := func(tag uint16, ttl uint32) *dns.DS {
+		return &dns.DS{
+			Hdr: dns.Header{Name: ".", Class: dns.ClassINET, TTL: ttl},
+			DS:  rdata.DS{KeyTag: tag, Algorithm: dns.RSASHA256, DigestType: dns.SHA256, Digest: "ABCD"},
+		}
+	}
+
+	ks.addDS(".", newDS(20326, math.MaxUint32))
+	ks.addDS(".", newDS(38696, 3600))
+
+	result := ks.getDS(".")
+	require.Len(t, result, 2)
+
+	tags := []uint16{result[0].KeyTag, result[1].KeyTag}
+	require.Contains(t, tags, uint16(20326))
+	require.Contains(t, tags, uint16(38696))
+
+	// Expiry must reflect the lowest TTL across the merged set (3600s).
+	currentTime = now.Add(3601 * time.Second)
+	require.Nil(t, ks.getDS("."))
+}
+
+// TestGetItemConcurrent verifies that concurrent getItem calls for the same
+// name all return the same entry. Before the double-checked lock, two callers
+// could each insert a fresh entry and the second would overwrite the first,
+// leaving one caller with an orphaned entry whose writes are lost.
+func TestGetItemConcurrent(t *testing.T) {
+	ks := newKeystore(time.Now)
+
+	const n = 64
+	items := make([]*keystoreEntry, n)
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			<-start
+			items[i] = ks.getItem("example.com.")
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+
+	for i := 1; i < n; i++ {
+		require.Same(t, items[0], items[i], "all callers must share one entry")
+	}
+}
+
+func TestBuildChainOfTrustCaching(t *testing.T) {
+	// Verify that buildChainOfTrust only queries DNSKEY once per zone
+	// by counting resolver calls
+	var lookupCount atomic.Int64
+
+	v := NewValidator(
+		WithResolver(func(q *dns.Msg) (*dns.Msg, error) {
+			lookupCount.Add(1)
+			a := new(dns.Msg)
+			dnsutil.SetReply(a, q)
+			// Return empty — this will cause an error, but we're testing caching
+			return a, nil
+		}),
+	)
+	v.SetAnchor(".", 20326, dns.RSASHA256, dns.SHA256, "E06D44B80B8F1D39A95C0B0D7C65D08458E880409BBC683457104237C7F8EC8D")
+
+	// First call will trigger a lookup (and fail due to no DNSKEY)
+	_, _, err := v.buildChainOfTrust(t.Context(), ".")
+	require.Error(t, err) // Expected to fail since mock returns no keys
+
+	count1 := lookupCount.Load()
+	require.Equal(t, int64(1), count1)
+}
+
+func TestFindKeysByTag(t *testing.T) {
+	key1RR, _ := dns.New(". 172800 IN DNSKEY 257 3 8 AwEAAaz/tAm8yTn4Mfeh5eyI96WSVexTBAvkMgJzkKTOiW1vkIbzxeF3 +/4RgWOq7HrxRixHlFlExOLAJr5emLvN7SWXgnLh4+B5xQlNVz8Og8kv ArMtNROxVQuCaSnIDdD5LKyWbRd2n9WGe2R8PzgCmr3EgVLrjyBxWezF 0jLHwVN8efS3rCj/EWgvIWgb9tarpVUDK/b58Da+sqqls3eNbuv7pr+e oZG+SrDK6nWeL3c6H5Apxz7LjVc1uTIdsIXxuOLYA4/ilBmSVIzuDWfd RUfhHdY6+cn8HFRm+2hM8AnXGXws9555KrUB5qihylGa8subX2Nn6UwN R1AkUTV74bU=")
+	key1 := key1RR.(*dns.DNSKEY)
+
+	tag := key1.KeyTag()
+	alg := key1.Algorithm
+
+	// Should find the key
+	found := findKeysByTag([]*dns.DNSKEY{key1}, tag, alg)
+	require.Len(t, found, 1)
+
+	// Wrong tag should find nothing
+	found = findKeysByTag([]*dns.DNSKEY{key1}, tag+1, alg)
+	require.Len(t, found, 0)
+
+	// Wrong algorithm should find nothing
+	found = findKeysByTag([]*dns.DNSKEY{key1}, tag, alg+1)
+	require.Len(t, found, 0)
+}
+
+func TestValidateInsecureDelegationRequiresProof(t *testing.T) {
+	// An empty DS response with no NSEC/NSEC3 in authority is not proof of
+	// an insecure delegation. The validator must reject it as bogus so the
+	// caller does not pass forged data through.
+	v := NewValidator(
+		WithResolver(func(q *dns.Msg) (*dns.Msg, error) {
+			a := new(dns.Msg)
+			dnsutil.SetReply(a, q)
+			return a, nil
+		}),
+	)
+
+	answer := new(dns.Msg)
+	dnsutil.SetQuestion(answer, "insecure.example.", dns.TypeA)
+	rr, _ := dns.New("insecure.example. 300 IN A 1.2.3.4")
+	answer.Answer = []dns.RR{rr}
+
+	err := v.Validate(answer)
+	require.Error(t, err)
+	require.NotErrorIs(t, err, ErrInsecureDelegation)
+}
