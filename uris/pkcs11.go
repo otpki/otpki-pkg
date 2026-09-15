@@ -1,51 +1,22 @@
 package uris
 
-// Package helpers includes a Go representation of the PKCS#11 URI scheme
-// defined in RFC 7512 (https://datatracker.ietf.org/doc/html/rfc7512).
-//
-// !-> Note to reviewers <-!: Most of this is ai generated, but it has been reviewed and cross referenced with the rfc.
-// Needed a slice of this, but thought we might as well have the full spec!
-//
-// PKCS11URI parses, serializes, and validates URIs of the form:
-//
-//	pkcs11:token=my-token;object=signing-key;type=private?pin-source=file:/etc/pin
-//
-// Build a URI to identify an HSM key:
-//
-//	id := []byte{0x01, 0x02, 0x03}
-//	u := &uris.PKCS11URI{
-//	    Token:  "my-token",
-//	    Object: "signing-key",
-//	    Type:   helpers.ObjectTypePrivate,
-//	    ID:     id,
-//	}
-//	strUri := u.String() // "pkcs11:token=my-token;object=signing-key;type=private;id=%01%02%03"
-//
-// Parse one back from string:
-//
-//	u, err := uris.ParsePKCS11URI(strUri)
-//
-// Also great for resolving to a unique crypto asset on an hsm:
-//
-//	if err := p11.FindObjectsInit(session, u.ToAttributes()); err != nil {
-//		return 0, err
-//	}
-
 import (
 	"encoding/binary"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/miekg/pkcs11"
 	"github.com/samber/oops"
 )
 
-const ServiceName = "uris"
+const (
+	ServiceName  = "uris"
+	pkcs11Scheme = "pkcs11:"
+)
 
-// pkcs11Scheme is the URI scheme prefix.
-const pkcs11Scheme = "pkcs11:"
-
-// ObjectType is the value of the "type" path attribute (CKA_CLASS).
+// ObjectType is the RFC 7512 value of the "type" path attribute.
 type ObjectType string
 
 const (
@@ -56,125 +27,142 @@ const (
 	ObjectTypeData      ObjectType = "data"
 )
 
-// Valid reports whether t is the empty string or one of the values enumerated by RFC 7512.
+// Valid reports whether t is empty or one of the object types defined by
+// RFC 7512. Empty is valid for an unset PKCS11URI.Type field.
 func (t ObjectType) Valid() bool {
 	switch t {
-	case "", ObjectTypePublic, ObjectTypePrivate, ObjectTypeCert,
-		ObjectTypeSecretKey, ObjectTypeData:
+	case "", ObjectTypePublic, ObjectTypePrivate, ObjectTypeCert, ObjectTypeSecretKey, ObjectTypeData:
 		return true
+	default:
+		return false
 	}
-	return false
 }
 
-// VendorAttr is a vendor-specific attribute. Names match `[A-Za-z0-9_-]+`.
-// Per RFC 7512 §2.3, vendor-specific attributes may appear multiple times.
+// VendorAttr is a vendor-specific RFC 7512 attribute.
 type VendorAttr struct {
 	Name  string
 	Value string
 }
 
-// PKCS11URI is a parsed PKCS#11 URI.
+// PKCS11URI is a decoded PKCS #11 URI as defined by RFC 7512.
 //
-// String fields hold decoded UTF-8 text (no percent-encoding). Empty string,
-// nil ID, and nil SlotID mean "attribute not set" and are omitted at
-// serialization. The "id" path attribute is binary; it is encoded as raw bytes
-// regardless of textual content.
+// Text fields contain decoded UTF-8. ID contains the raw CKA_ID bytes. Most
+// zero-value fields mean "attribute absent". When parsing, the implementation
+// also remembers whether an otherwise-empty standard attribute was present,
+// so values such as "serial=" and "id=" round-trip without changing their
+// matching semantics.
 type PKCS11URI struct {
-	// Path attributes (RFC 7512 §2.3).
-	Token               string     // CK_TOKEN_INFO.label
-	Manufacturer        string     // CK_TOKEN_INFO.manufacturerID
-	Serial              string     // CK_TOKEN_INFO.serialNumber
-	Model               string     // CK_TOKEN_INFO.model
-	LibraryManufacturer string     // CK_INFO.manufacturerID
-	LibraryDescription  string     // CK_INFO.libraryDescription
-	LibraryVersion      string     // CK_INFO.libraryVersion: "M" or "M.N", each 0-255
-	Object              string     // CKA_LABEL
-	Type                ObjectType // CKA_CLASS
-	ID                  []byte     // CKA_ID (binary)
-	SlotManufacturer    string     // CK_SLOT_INFO.manufacturerID
-	SlotDescription     string     // CK_SLOT_INFO.slotDescription
-	SlotID              *uint64    // CK_SLOT_ID (Cryptoki-assigned)
+	// Path attributes (RFC 7512 section 2.3).
+	Token               string
+	Manufacturer        string
+	Serial              string
+	Model               string
+	LibraryManufacturer string
+	LibraryDescription  string
+	LibraryVersion      string
+	Object              string
+	Type                ObjectType
+	ID                  []byte
+	SlotManufacturer    string
+	SlotDescription     string
+	SlotID              *uint64
 	VendorPath          []VendorAttr
 
-	// Query attributes (RFC 7512 §2.4).
-	PinSource   string // URI/command pointing at the PIN
-	PinValue    string // Plaintext PIN (mutually exclusive with PinSource)
-	ModuleName  string // Module name without system affixes
-	ModulePath  string // Absolute filesystem path (mutually exclusive with ModuleName)
+	// Query attributes (RFC 7512 section 2.4).
+	PinSource   string
+	PinValue    string
+	ModuleName  string
+	ModulePath  string
 	VendorQuery []VendorAttr
+
+	// present preserves parsed empty standard attributes without changing the
+	// public struct-literal API.
+	present uint32
 }
 
-// ParsePKCS11URI parses s as a PKCS#11 URI per RFC 7512.
+// ParsePKCS11URI parses and validates an RFC 7512 PKCS #11 URI.
 func ParsePKCS11URI(s string) (*PKCS11URI, error) {
-	if !strings.HasPrefix(s, pkcs11Scheme) {
-		return nil, oops.In(ServiceName).Errorf("pkcs11uri: missing %q scheme prefix", pkcs11Scheme)
+	if len(s) < len(pkcs11Scheme) || !strings.EqualFold(s[:len(pkcs11Scheme)], pkcs11Scheme) {
+		return nil, uriErrorf("missing %q scheme prefix", pkcs11Scheme)
 	}
+
 	rest := s[len(pkcs11Scheme):]
-
-	var pathPart, queryPart string
-	hasQuery := false
-	if before, after, ok := strings.Cut(rest, "?"); ok {
-		pathPart, queryPart = before, after
-		hasQuery = true
-	} else {
-		pathPart = rest
-	}
-
+	pathPart, queryPart, hasQuery := strings.Cut(rest, "?")
 	u := &PKCS11URI{}
 
 	if pathPart != "" {
-		seen := map[string]bool{}
+		seen := make(map[string]struct{})
 		for _, raw := range strings.Split(pathPart, ";") {
-			name, value, err := splitAttr(raw)
+			rawName, value, err := splitAttr(raw)
 			if err != nil {
 				return nil, err
 			}
-			if !isStandardPathAttr(name) {
-				if !isVendorName(name) {
-					return nil, oops.In(ServiceName).Errorf("pkcs11uri: invalid path attribute name %q", name)
+
+			if name, ok := canonicalPathAttr(rawName); ok {
+				key := "standard:" + name
+				if _, duplicate := seen[key]; duplicate {
+					return nil, uriErrorf("duplicate path attribute %q", rawName)
 				}
-				dec, err := decodePathString(value)
-				if err != nil {
-					return nil, oops.In(ServiceName).Wrapf(err, "pkcs11uri: vendor attribute %q", name)
+				seen[key] = struct{}{}
+				if err := u.setPathAttr(name, value); err != nil {
+					return nil, err
 				}
-				u.VendorPath = append(u.VendorPath, VendorAttr{Name: name, Value: dec})
 				continue
 			}
-			if seen[name] {
-				return nil, oops.In(ServiceName).Errorf("pkcs11uri: duplicate path attribute %q", name)
+
+			if isStandardAttr(rawName) {
+				return nil, uriErrorf("vendor path attribute %q clashes with a standard attribute", rawName)
 			}
-			seen[name] = true
-			if err := u.setPathAttr(name, value); err != nil {
-				return nil, err
+			if !isVendorName(rawName) {
+				return nil, uriErrorf("invalid path attribute name %q", rawName)
 			}
+			key := "vendor:" + rawName
+			if _, duplicate := seen[key]; duplicate {
+				return nil, uriErrorf("duplicate path attribute %q", rawName)
+			}
+			seen[key] = struct{}{}
+
+			decoded, err := decodePathString(value)
+			if err != nil {
+				return nil, wrapAttr(rawName, err)
+			}
+			u.VendorPath = append(u.VendorPath, VendorAttr{Name: rawName, Value: decoded})
 		}
 	}
 
-	if hasQuery {
-		seen := map[string]bool{}
+	// RFC 7512 explicitly allows an empty query component.
+	if hasQuery && queryPart != "" {
+		seenStandard := make(map[string]struct{})
 		for _, raw := range strings.Split(queryPart, "&") {
-			name, value, err := splitAttr(raw)
+			rawName, value, err := splitAttr(raw)
 			if err != nil {
 				return nil, err
 			}
-			if !isStandardQueryAttr(name) {
-				if !isVendorName(name) {
-					return nil, oops.In(ServiceName).Errorf("pkcs11uri: invalid query attribute name %q", name)
+
+			if name, ok := canonicalQueryAttr(rawName); ok {
+				if _, duplicate := seenStandard[name]; duplicate {
+					return nil, uriErrorf("duplicate query attribute %q", rawName)
 				}
-				dec, err := decodeQueryString(value)
-				if err != nil {
-					return nil, oops.In(ServiceName).Wrapf(err, "pkcs11uri: vendor attribute %q", name)
+				seenStandard[name] = struct{}{}
+				if err := u.setQueryAttr(name, value); err != nil {
+					return nil, err
 				}
-				u.VendorQuery = append(u.VendorQuery, VendorAttr{Name: name, Value: dec})
 				continue
 			}
-			if seen[name] {
-				return nil, oops.In(ServiceName).Errorf("pkcs11uri: duplicate query attribute %q", name)
+
+			if isStandardAttr(rawName) {
+				return nil, uriErrorf("vendor query attribute %q clashes with a standard attribute", rawName)
 			}
-			seen[name] = true
-			if err := u.setQueryAttr(name, value); err != nil {
-				return nil, err
+			if !isVendorName(rawName) {
+				return nil, uriErrorf("invalid query attribute name %q", rawName)
 			}
+
+			decoded, err := decodeQueryString(value)
+			if err != nil {
+				return nil, wrapAttr(rawName, err)
+			}
+			// Duplicate vendor query attributes are explicitly permitted by RFC 7512.
+			u.VendorQuery = append(u.VendorQuery, VendorAttr{Name: rawName, Value: decoded})
 		}
 	}
 
@@ -184,8 +172,7 @@ func ParsePKCS11URI(s string) (*PKCS11URI, error) {
 	return u, nil
 }
 
-// MustParsePKCS11URI is like ParsePKCS11URI but panics on error. Useful for
-// constants and tests where the URI is known-valid at compile time.
+// MustParsePKCS11URI is like ParsePKCS11URI but panics on error.
 func MustParsePKCS11URI(s string) *PKCS11URI {
 	u, err := ParsePKCS11URI(s)
 	if err != nil {
@@ -194,201 +181,238 @@ func MustParsePKCS11URI(s string) *PKCS11URI {
 	return u
 }
 
-// String serializes the URI per RFC 7512. The output is canonical: path
-// attributes appear in the order defined by the RFC, followed by vendor path
-// attributes in insertion order; query attributes follow the same convention.
-//
-// String does not call Validate; serialize an invalid struct and you get an
-// invalid string. Call Validate first if you need to be sure.
+// Has reports whether a standard attribute is present. It is primarily useful
+// for distinguishing a parsed empty value (for example, "serial=") from an
+// absent attribute.
+func (u *PKCS11URI) Has(name string) bool {
+	if u == nil {
+		return false
+	}
+	if canonical, ok := canonicalPathAttr(name); ok {
+		return u.hasStandard(canonical)
+	}
+	if canonical, ok := canonicalQueryAttr(name); ok {
+		return u.hasStandard(canonical)
+	}
+	return false
+}
+
+// String serializes u using deterministic RFC 7512 attribute ordering and
+// uppercase percent escapes. It does not validate programmatically-constructed
+// values; use MarshalText or Validate when validation is required.
 func (u *PKCS11URI) String() string {
 	if u == nil {
 		return pkcs11Scheme
 	}
-	var b strings.Builder
-	b.WriteString(pkcs11Scheme)
 
-	first := true
-	addPath := func(name, encoded string) {
-		if !first {
-			b.WriteByte(';')
+	path := make([]string, 0, 13+len(u.VendorPath))
+	addPathText := func(name, value string) {
+		if value != "" || u.hasStandard(name) {
+			path = append(path, name+"="+encodePathString(value))
 		}
-		first = false
-		b.WriteString(name)
-		b.WriteByte('=')
-		b.WriteString(encoded)
-	}
-	addPathStr := func(name, value string) {
-		if value == "" {
-			return
-		}
-		addPath(name, encodePathString(value))
 	}
 
-	addPathStr("token", u.Token)
-	addPathStr("manufacturer", u.Manufacturer)
-	addPathStr("serial", u.Serial)
-	addPathStr("model", u.Model)
-	addPathStr("library-manufacturer", u.LibraryManufacturer)
-	addPathStr("library-description", u.LibraryDescription)
+	addPathText("token", u.Token)
+	addPathText("manufacturer", u.Manufacturer)
+	addPathText("serial", u.Serial)
+	addPathText("model", u.Model)
+	addPathText("library-manufacturer", u.LibraryManufacturer)
+	addPathText("library-description", u.LibraryDescription)
 	if u.LibraryVersion != "" {
-		addPath("library-version", u.LibraryVersion)
+		path = append(path, "library-version="+u.LibraryVersion)
 	}
-	addPathStr("object", u.Object)
+	addPathText("object", u.Object)
 	if u.Type != "" {
-		addPath("type", string(u.Type))
+		path = append(path, "type="+string(u.Type))
 	}
-	if len(u.ID) > 0 {
-		addPath("id", encodeIDBytes(u.ID))
+	if len(u.ID) != 0 || u.hasStandard("id") {
+		path = append(path, "id="+encodeIDBytes(u.ID))
 	}
-	addPathStr("slot-manufacturer", u.SlotManufacturer)
-	addPathStr("slot-description", u.SlotDescription)
+	addPathText("slot-manufacturer", u.SlotManufacturer)
+	addPathText("slot-description", u.SlotDescription)
 	if u.SlotID != nil {
-		addPath("slot-id", strconv.FormatUint(*u.SlotID, 10))
+		path = append(path, "slot-id="+strconv.FormatUint(*u.SlotID, 10))
 	}
-	for _, va := range u.VendorPath {
-		addPath(va.Name, encodePathString(va.Value))
+	for _, attr := range u.VendorPath {
+		path = append(path, attr.Name+"="+encodePathString(attr.Value))
 	}
 
-	queryParts := u.queryParts()
-	if len(queryParts) > 0 {
-		b.WriteByte('?')
-		for i, p := range queryParts {
-			if i > 0 {
-				b.WriteByte('&')
-			}
-			b.WriteString(p)
-		}
-	}
-	return b.String()
-}
-
-func (u *PKCS11URI) queryParts() []string {
-	var out []string
-	addStr := func(name, value string) {
-		if value == "" {
-			return
-		}
-		out = append(out, name+"="+encodeQueryString(value))
-	}
-	addStr("pin-source", u.PinSource)
-	addStr("pin-value", u.PinValue)
-	addStr("module-name", u.ModuleName)
-	addStr("module-path", u.ModulePath)
-	for _, va := range u.VendorQuery {
-		out = append(out, va.Name+"="+encodeQueryString(va.Value))
+	out := pkcs11Scheme + strings.Join(path, ";")
+	query := u.queryParts()
+	if len(query) != 0 {
+		out += "?" + strings.Join(query, "&")
 	}
 	return out
 }
 
-// Validate checks the URI against RFC 7512 semantic constraints:
-// the type enum, library-version format, mutually-exclusive attribute pairs,
-// absolute module-path, and vendor name syntax.
+func (u *PKCS11URI) queryParts() []string {
+	query := make([]string, 0, 4+len(u.VendorQuery))
+	add := func(name, value string) {
+		if value != "" || u.hasStandard(name) {
+			query = append(query, name+"="+encodeQueryString(value))
+		}
+	}
+
+	add("pin-source", u.PinSource)
+	add("pin-value", u.PinValue)
+	add("module-name", u.ModuleName)
+	add("module-path", u.ModulePath)
+	for _, attr := range u.VendorQuery {
+		query = append(query, attr.Name+"="+encodeQueryString(attr.Value))
+	}
+	return query
+}
+
+// Validate checks semantic constraints enforced by this package.
 func (u *PKCS11URI) Validate() error {
+	if u == nil {
+		return uriErrorf("nil PKCS11URI")
+	}
 	if !u.Type.Valid() {
-		return oops.In(ServiceName).Errorf("pkcs11uri: invalid type %q", u.Type)
+		return uriErrorf("invalid type %q", u.Type)
 	}
 	if u.LibraryVersion != "" {
 		if err := validateLibraryVersion(u.LibraryVersion); err != nil {
 			return err
 		}
 	}
-	if u.PinSource != "" && u.PinValue != "" {
-		return oops.In(ServiceName).New("pkcs11uri: pin-source and pin-value are mutually exclusive")
+
+	// RFC 7512 recommends rejecting URIs containing both PIN attributes.
+	if u.Has("pin-source") && u.Has("pin-value") {
+		return uriErrorf("pin-source and pin-value are mutually exclusive")
 	}
-	if u.ModuleName != "" && u.ModulePath != "" {
-		return oops.In(ServiceName).New("pkcs11uri: module-name and module-path are mutually exclusive")
+	// Using module-name and module-path together is discouraged by RFC 7512,
+	// but explicitly has implementation-specific semantics, so it is allowed.
+	if u.Has("module-path") && !filepath.IsAbs(u.ModulePath) {
+		return uriErrorf("module-path must be absolute, got %q", u.ModulePath)
 	}
-	if u.ModulePath != "" && !strings.HasPrefix(u.ModulePath, "/") {
-		return oops.In(ServiceName).Errorf("pkcs11uri: module-path must be absolute, got %q", u.ModulePath)
-	}
-	for _, va := range u.VendorPath {
-		if !isVendorName(va.Name) {
-			return oops.In(ServiceName).Errorf("pkcs11uri: invalid vendor path attribute name %q", va.Name)
-		}
-		if isStandardPathAttr(va.Name) {
-			return oops.In(ServiceName).Errorf("pkcs11uri: vendor path attribute %q shadows a standard attribute", va.Name)
+
+	for name, value := range u.textFields() {
+		if !utf8.ValidString(value) {
+			return uriErrorf("attribute %q is not valid UTF-8", name)
 		}
 	}
-	for _, va := range u.VendorQuery {
-		if !isVendorName(va.Name) {
-			return oops.In(ServiceName).Errorf("pkcs11uri: invalid vendor query attribute name %q", va.Name)
+
+	seenVendorPath := make(map[string]struct{}, len(u.VendorPath))
+	for _, attr := range u.VendorPath {
+		if err := validateVendorAttr("path", attr); err != nil {
+			return err
 		}
-		if isStandardQueryAttr(va.Name) {
-			return oops.In(ServiceName).Errorf("pkcs11uri: vendor query attribute %q shadows a standard attribute", va.Name)
+		if _, duplicate := seenVendorPath[attr.Name]; duplicate {
+			return uriErrorf("duplicate vendor path attribute %q", attr.Name)
 		}
+		seenVendorPath[attr.Name] = struct{}{}
+	}
+	for _, attr := range u.VendorQuery {
+		if err := validateVendorAttr("query", attr); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (u *PKCS11URI) textFields() map[string]string {
+	return map[string]string{
+		"token":                u.Token,
+		"manufacturer":         u.Manufacturer,
+		"serial":               u.Serial,
+		"model":                u.Model,
+		"library-manufacturer": u.LibraryManufacturer,
+		"library-description":  u.LibraryDescription,
+		"object":               u.Object,
+		"slot-manufacturer":    u.SlotManufacturer,
+		"slot-description":     u.SlotDescription,
+		"pin-source":           u.PinSource,
+		"pin-value":            u.PinValue,
+		"module-name":          u.ModuleName,
+		"module-path":          u.ModulePath,
+	}
+}
+
+func validateVendorAttr(component string, attr VendorAttr) error {
+	if !isVendorName(attr.Name) {
+		return uriErrorf("invalid vendor %s attribute name %q", component, attr.Name)
+	}
+	if isStandardAttr(attr.Name) {
+		return uriErrorf("vendor %s attribute %q clashes with a standard attribute", component, attr.Name)
+	}
+	if !utf8.ValidString(attr.Value) {
+		return uriErrorf("vendor %s attribute %q is not valid UTF-8", component, attr.Name)
 	}
 	return nil
 }
 
-// ToAttributes returns the object-level PKCS#11 attributes from the URI,
-// suitable for passing to FindObjectsInit as a search template.
-//
-// Only the URI fields that map to PKCS#11 object attributes are emitted:
-//
-//	Object → CKA_LABEL
-//	Type   → CKA_CLASS (CKO_PUBLIC_KEY, CKO_PRIVATE_KEY, CKO_CERTIFICATE,
-//	         CKO_SECRET_KEY, CKO_DATA)
-//	ID     → CKA_ID
-//
-// Token, slot, and library identifiers are not object attributes; the caller
-// is responsible for using those fields to pick the right slot/session.
+// ToAttributes returns the object-level attributes usable as a PKCS #11
+// FindObjectsInit template. Token, slot, and library fields are intentionally
+// excluded because they are not object attributes.
 func (u *PKCS11URI) ToAttributes() []*pkcs11.Attribute {
-	var attrs []*pkcs11.Attribute
-	if u.Object != "" {
+	if u == nil {
+		return nil
+	}
+
+	attrs := make([]*pkcs11.Attribute, 0, 3)
+	if u.Has("object") {
 		attrs = append(attrs, pkcs11.NewAttribute(pkcs11.CKA_LABEL, u.Object))
 	}
-	if u.Type != "" {
-		if class, ok := objectTypeToClass(u.Type); ok {
-			attrs = append(attrs, pkcs11.NewAttribute(pkcs11.CKA_CLASS, class))
-		}
+	if class, ok := objectTypeToClass(u.Type); ok {
+		attrs = append(attrs, pkcs11.NewAttribute(pkcs11.CKA_CLASS, class))
 	}
-	if len(u.ID) > 0 {
+	if u.Has("id") {
 		attrs = append(attrs, pkcs11.NewAttribute(pkcs11.CKA_ID, u.ID))
 	}
 	return attrs
 }
 
-// FromAttributes populates the object-level URI fields (Object, Type, ID)
-// from a PKCS#11 attribute list, typically the result of GetAttributeValue.
-// CKA_LABEL → Object, CKA_CLASS → Type, CKA_ID → ID. Other attribute types
-// are ignored. Token/slot/library URI fields are left untouched.
+// FromAttributes populates Object, Type, and ID from PKCS #11 attributes.
+// Other fields are left unchanged.
 func (u *PKCS11URI) FromAttributes(attrs []*pkcs11.Attribute) error {
-	for _, a := range attrs {
-		if a == nil {
+	if u == nil {
+		return uriErrorf("nil PKCS11URI")
+	}
+
+	for _, attr := range attrs {
+		if attr == nil {
 			continue
 		}
-		switch a.Type {
+		switch attr.Type {
 		case pkcs11.CKA_LABEL:
-			u.Object = string(a.Value)
+			u.Object = string(attr.Value)
+			u.markPresent("object")
 		case pkcs11.CKA_ID:
-			u.ID = append([]byte(nil), a.Value...)
+			u.ID = append(u.ID[:0], attr.Value...)
+			u.markPresent("id")
 		case pkcs11.CKA_CLASS:
-			class, err := decodeCKULong(a.Value)
+			class, err := decodeCKULong(attr.Value)
 			if err != nil {
 				return oops.In(ServiceName).Wrapf(err, "pkcs11uri: CKA_CLASS")
 			}
 			t, ok := classToObjectType(class)
 			if !ok {
-				return oops.In(ServiceName).Errorf("pkcs11uri: unsupported CKA_CLASS value %d", class)
+				return uriErrorf("unsupported CKA_CLASS value %d", class)
 			}
 			u.Type = t
+			u.markPresent("type")
 		}
 	}
 	return nil
 }
 
-// IDAttr returns a single attribute that uniquely identifies the key for an
-// HSM lookup. CKA_ID is preferred when set, with CKA_LABEL as a fallback.
-// Returns an error if neither ID nor Object is populated, since neither
-// alone is enough to find a specific key.
+// IDAttr returns the preferred single lookup attribute: CKA_ID when present,
+// otherwise CKA_LABEL. Neither attribute is guaranteed by PKCS #11 to be
+// globally unique; callers that require uniqueness should add appropriate
+// token/type constraints.
 func (u *PKCS11URI) IDAttr() (*pkcs11.Attribute, error) {
-	if len(u.ID) > 0 {
+	if u == nil {
+		return nil, uriErrorf("nil PKCS11URI")
+	}
+	if u.Has("id") {
 		return pkcs11.NewAttribute(pkcs11.CKA_ID, u.ID), nil
 	}
-	if u.Object != "" {
+	if u.Has("object") {
 		return pkcs11.NewAttribute(pkcs11.CKA_LABEL, u.Object), nil
 	}
-	return nil, oops.In(ServiceName).New("pkcs11uri: no uniquely identifying attribute set (need id or object)")
+	return nil, uriErrorf("no identifying object attribute set (need id or object)")
 }
 
 func objectTypeToClass(t ObjectType) (uint, bool) {
@@ -403,8 +427,9 @@ func objectTypeToClass(t ObjectType) (uint, bool) {
 		return pkcs11.CKO_SECRET_KEY, true
 	case ObjectTypeData:
 		return pkcs11.CKO_DATA, true
+	default:
+		return 0, false
 	}
-	return 0, false
 }
 
 func classToObjectType(class uint64) (ObjectType, bool) {
@@ -419,21 +444,21 @@ func classToObjectType(class uint64) (ObjectType, bool) {
 		return ObjectTypeSecretKey, true
 	case uint64(pkcs11.CKO_DATA):
 		return ObjectTypeData, true
+	default:
+		return "", false
 	}
-	return "", false
 }
 
-// decodeCKULong reads a CK_ULONG written by the HSM in native byte order.
-// Linux/macOS on x86_64 and arm64 are little-endian; CK_ULONG is 8 bytes on
-// modern 64-bit builds and 4 on 32-bit / Windows LLP64.
+// decodeCKULong decodes a CK_ULONG returned by the native PKCS #11 module.
 func decodeCKULong(b []byte) (uint64, error) {
 	switch len(b) {
-	case 8:
-		return binary.LittleEndian.Uint64(b), nil
 	case 4:
-		return uint64(binary.LittleEndian.Uint32(b)), nil
+		return uint64(binary.NativeEndian.Uint32(b)), nil
+	case 8:
+		return binary.NativeEndian.Uint64(b), nil
+	default:
+		return 0, uriErrorf("expected 4 or 8 bytes for CK_ULONG, got %d", len(b))
 	}
-	return 0, oops.In(ServiceName).Errorf("expected 4 or 8 bytes for CK_ULONG, got %d", len(b))
 }
 
 // MarshalText implements encoding.TextMarshaler.
@@ -445,8 +470,11 @@ func (u *PKCS11URI) MarshalText() ([]byte, error) {
 }
 
 // UnmarshalText implements encoding.TextUnmarshaler.
-func (u *PKCS11URI) UnmarshalText(b []byte) error {
-	parsed, err := ParsePKCS11URI(string(b))
+func (u *PKCS11URI) UnmarshalText(text []byte) error {
+	if u == nil {
+		return uriErrorf("nil PKCS11URI")
+	}
+	parsed, err := ParsePKCS11URI(string(text))
 	if err != nil {
 		return err
 	}
@@ -454,155 +482,210 @@ func (u *PKCS11URI) UnmarshalText(b []byte) error {
 	return nil
 }
 
-// --- attribute application -------------------------------------------------
-
-func (u *PKCS11URI) setPathAttr(name, value string) error {
+func (u *PKCS11URI) setPathAttr(name, raw string) error {
 	switch name {
-	case "token":
-		v, err := decodePathString(value)
-		if err != nil {
-			return wrapAttr(name, err)
-		}
-		u.Token = v
-	case "manufacturer":
-		v, err := decodePathString(value)
-		if err != nil {
-			return wrapAttr(name, err)
-		}
-		u.Manufacturer = v
-	case "serial":
-		v, err := decodePathString(value)
-		if err != nil {
-			return wrapAttr(name, err)
-		}
-		u.Serial = v
-	case "model":
-		v, err := decodePathString(value)
-		if err != nil {
-			return wrapAttr(name, err)
-		}
-		u.Model = v
-	case "library-manufacturer":
-		v, err := decodePathString(value)
-		if err != nil {
-			return wrapAttr(name, err)
-		}
-		u.LibraryManufacturer = v
-	case "library-description":
-		v, err := decodePathString(value)
-		if err != nil {
-			return wrapAttr(name, err)
-		}
-		u.LibraryDescription = v
 	case "library-version":
-		if err := validateLibraryVersion(value); err != nil {
+		if err := validateLibraryVersion(raw); err != nil {
 			return err
 		}
-		u.LibraryVersion = value
-	case "object":
-		v, err := decodePathString(value)
-		if err != nil {
-			return wrapAttr(name, err)
-		}
-		u.Object = v
+		u.LibraryVersion = raw
 	case "type":
-		t := ObjectType(value)
-		if !t.Valid() || t == "" {
-			return oops.In(ServiceName).Errorf("pkcs11uri: invalid type %q", value)
+		t := ObjectType(raw)
+		if t == "" || !t.Valid() {
+			return uriErrorf("invalid type %q", raw)
 		}
 		u.Type = t
 	case "id":
-		v, err := decodePathBytes(value)
+		value, err := decodePathBytes(raw)
 		if err != nil {
 			return wrapAttr(name, err)
 		}
-		u.ID = v
-	case "slot-manufacturer":
-		v, err := decodePathString(value)
-		if err != nil {
-			return wrapAttr(name, err)
-		}
-		u.SlotManufacturer = v
-	case "slot-description":
-		v, err := decodePathString(value)
-		if err != nil {
-			return wrapAttr(name, err)
-		}
-		u.SlotDescription = v
+		u.ID = value
 	case "slot-id":
-		n, err := strconv.ParseUint(value, 10, 64)
+		value, err := parseDecimalUint(raw, 64)
 		if err != nil {
-			return oops.In(ServiceName).Wrapf(err, "pkcs11uri: slot-id %q", value)
+			return oops.In(ServiceName).Wrapf(err, "pkcs11uri: slot-id %q", raw)
 		}
-		u.SlotID = &n
+		u.SlotID = &value
 	default:
-		return oops.In(ServiceName).Errorf("pkcs11uri: unknown standard path attribute %q", name)
+		value, err := decodePathString(raw)
+		if err != nil {
+			return wrapAttr(name, err)
+		}
+		switch name {
+		case "token":
+			u.Token = value
+		case "manufacturer":
+			u.Manufacturer = value
+		case "serial":
+			u.Serial = value
+		case "model":
+			u.Model = value
+		case "library-manufacturer":
+			u.LibraryManufacturer = value
+		case "library-description":
+			u.LibraryDescription = value
+		case "object":
+			u.Object = value
+		case "slot-manufacturer":
+			u.SlotManufacturer = value
+		case "slot-description":
+			u.SlotDescription = value
+		default:
+			return uriErrorf("unknown standard path attribute %q", name)
+		}
 	}
+
+	u.markPresent(name)
 	return nil
 }
 
-func (u *PKCS11URI) setQueryAttr(name, value string) error {
+func (u *PKCS11URI) setQueryAttr(name, raw string) error {
+	value, err := decodeQueryString(raw)
+	if err != nil {
+		return wrapAttr(name, err)
+	}
+
 	switch name {
 	case "pin-source":
-		v, err := decodeQueryString(value)
-		if err != nil {
-			return wrapAttr(name, err)
-		}
-		u.PinSource = v
+		u.PinSource = value
 	case "pin-value":
-		v, err := decodeQueryString(value)
-		if err != nil {
-			return wrapAttr(name, err)
-		}
-		u.PinValue = v
+		u.PinValue = value
 	case "module-name":
-		v, err := decodeQueryString(value)
-		if err != nil {
-			return wrapAttr(name, err)
-		}
-		u.ModuleName = v
+		u.ModuleName = value
 	case "module-path":
-		v, err := decodeQueryString(value)
-		if err != nil {
-			return wrapAttr(name, err)
-		}
-		u.ModulePath = v
+		u.ModulePath = value
 	default:
-		return oops.In(ServiceName).Errorf("pkcs11uri: unknown standard query attribute %q", name)
+		return uriErrorf("unknown standard query attribute %q", name)
 	}
+
+	u.markPresent(name)
 	return nil
 }
 
-// --- name predicates -------------------------------------------------------
+func (u *PKCS11URI) markPresent(name string) {
+	u.present |= standardPresenceBit(name)
+}
 
-func isStandardPathAttr(name string) bool {
+func (u *PKCS11URI) hasStandard(name string) bool {
+	if u == nil {
+		return false
+	}
+	if bit := standardPresenceBit(name); bit != 0 && u.present&bit != 0 {
+		return true
+	}
+
+	switch name {
+	case "token":
+		return u.Token != ""
+	case "manufacturer":
+		return u.Manufacturer != ""
+	case "serial":
+		return u.Serial != ""
+	case "model":
+		return u.Model != ""
+	case "library-manufacturer":
+		return u.LibraryManufacturer != ""
+	case "library-description":
+		return u.LibraryDescription != ""
+	case "library-version":
+		return u.LibraryVersion != ""
+	case "object":
+		return u.Object != ""
+	case "type":
+		return u.Type != ""
+	case "id":
+		return len(u.ID) != 0
+	case "slot-manufacturer":
+		return u.SlotManufacturer != ""
+	case "slot-description":
+		return u.SlotDescription != ""
+	case "slot-id":
+		return u.SlotID != nil
+	case "pin-source":
+		return u.PinSource != ""
+	case "pin-value":
+		return u.PinValue != ""
+	case "module-name":
+		return u.ModuleName != ""
+	case "module-path":
+		return u.ModulePath != ""
+	default:
+		return false
+	}
+}
+
+func standardPresenceBit(name string) uint32 {
+	switch name {
+	case "token":
+		return 1 << 0
+	case "manufacturer":
+		return 1 << 1
+	case "serial":
+		return 1 << 2
+	case "model":
+		return 1 << 3
+	case "library-manufacturer":
+		return 1 << 4
+	case "library-description":
+		return 1 << 5
+	case "object":
+		return 1 << 6
+	case "id":
+		return 1 << 7
+	case "slot-manufacturer":
+		return 1 << 8
+	case "slot-description":
+		return 1 << 9
+	case "pin-source":
+		return 1 << 10
+	case "pin-value":
+		return 1 << 11
+	case "module-name":
+		return 1 << 12
+	case "module-path":
+		return 1 << 13
+	default:
+		return 0
+	}
+}
+
+func canonicalPathAttr(name string) (string, bool) {
+	name = strings.ToLower(name)
 	switch name {
 	case "token", "manufacturer", "serial", "model",
 		"library-manufacturer", "library-description", "library-version",
-		"object", "type", "id",
-		"slot-manufacturer", "slot-description", "slot-id":
-		return true
+		"object", "type", "id", "slot-manufacturer", "slot-description", "slot-id":
+		return name, true
+	default:
+		return "", false
 	}
-	return false
 }
 
-func isStandardQueryAttr(name string) bool {
+func canonicalQueryAttr(name string) (string, bool) {
+	name = strings.ToLower(name)
 	switch name {
 	case "pin-source", "pin-value", "module-name", "module-path":
-		return true
+		return name, true
+	default:
+		return "", false
 	}
-	return false
 }
 
-// isVendorName checks the pk11-v-attr-nm-char rule: 1*(ALPHA / DIGIT / "-" / "_").
+func isStandardAttr(name string) bool {
+	_, path := canonicalPathAttr(name)
+	_, query := canonicalQueryAttr(name)
+	return path || query
+}
+
+// isVendorName implements RFC 7512 pk11-v-attr-nm-char.
 func isVendorName(s string) bool {
 	if s == "" {
 		return false
 	}
 	for i := 0; i < len(s); i++ {
 		c := s[i]
-		if (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
-			(c >= '0' && c <= '9') || c == '-' || c == '_' {
+		if c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '-' || c == '_' {
 			continue
 		}
 		return false
@@ -610,56 +693,57 @@ func isVendorName(s string) bool {
 	return true
 }
 
-// --- parsing helpers -------------------------------------------------------
-
 func splitAttr(raw string) (name, value string, err error) {
-	before, after, ok := strings.Cut(raw, "=")
+	name, value, ok := strings.Cut(raw, "=")
 	if !ok {
-		return "", "", oops.In(ServiceName).Errorf("pkcs11uri: malformed attribute %q (missing '=')", raw)
+		return "", "", uriErrorf("malformed attribute %q (missing '=')", raw)
 	}
-	name = before
-	value = after
 	if name == "" {
-		return "", "", oops.In(ServiceName).Errorf("pkcs11uri: empty attribute name in %q", raw)
+		return "", "", uriErrorf("empty attribute name in %q", raw)
 	}
 	return name, value, nil
 }
 
 func validateLibraryVersion(v string) error {
-	parts := strings.SplitN(v, ".", 2)
-	for _, p := range parts {
-		if p == "" {
-			return oops.In(ServiceName).Errorf("pkcs11uri: invalid library-version %q", v)
-		}
-		n, err := strconv.ParseUint(p, 10, 16)
-		if err != nil {
+	major, minor, hasMinor := strings.Cut(v, ".")
+	if major == "" || hasMinor && minor == "" || strings.Contains(minor, ".") {
+		return uriErrorf("invalid library-version %q", v)
+	}
+	if _, err := parseDecimalUint(major, 8); err != nil {
+		return oops.In(ServiceName).Wrapf(err, "pkcs11uri: invalid library-version %q", v)
+	}
+	if hasMinor {
+		if _, err := parseDecimalUint(minor, 8); err != nil {
 			return oops.In(ServiceName).Wrapf(err, "pkcs11uri: invalid library-version %q", v)
-		}
-		if n > 255 {
-			return oops.In(ServiceName).Errorf("pkcs11uri: library-version component out of range 0-255 in %q", v)
 		}
 	}
 	return nil
+}
+
+func parseDecimalUint(s string, bitSize int) (uint64, error) {
+	if s == "" {
+		return 0, strconv.ErrSyntax
+	}
+	for i := 0; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
+			return 0, strconv.ErrSyntax
+		}
+	}
+	return strconv.ParseUint(s, 10, bitSize)
+}
+
+func uriErrorf(format string, args ...any) error {
+	return oops.In(ServiceName).Errorf("pkcs11uri: "+format, args...)
 }
 
 func wrapAttr(name string, err error) error {
 	return oops.In(ServiceName).Wrapf(err, "pkcs11uri: attribute %q", name)
 }
 
-// --- percent-encoding ------------------------------------------------------
-
-// isUnreserved reports whether c is in the RFC 3986 unreserved set.
-func isUnreserved(c byte) bool {
-	return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
-		(c >= '0' && c <= '9') ||
-		c == '-' || c == '.' || c == '_' || c == '~'
-}
-
-// pathSafeExtras is pk11-path-res-avail (pk11-res-avail + "&").
-const pathSafeExtras = ":[]@!$'()*+,=&"
-
-// querySafeExtras is pk11-query-res-avail (pk11-res-avail + "/" + "?" + "|").
-const querySafeExtras = ":[]@!$'()*+,=/?|"
+const (
+	pathSafeExtras  = ":[]@!$'()*+,=&"
+	querySafeExtras = ":[]@!$'()*+,=/?|"
+)
 
 func isPathSafe(c byte) bool {
 	return isUnreserved(c) || strings.IndexByte(pathSafeExtras, c) >= 0
@@ -669,59 +753,35 @@ func isQuerySafe(c byte) bool {
 	return isUnreserved(c) || strings.IndexByte(querySafeExtras, c) >= 0
 }
 
-// encodePathString percent-encodes s for the path component.
-func encodePathString(s string) string { return percentEncode(s, isPathSafe) }
-
-// encodeQueryString percent-encodes s for the query component.
+func encodePathString(s string) string  { return percentEncode(s, isPathSafe) }
 func encodeQueryString(s string) string { return percentEncode(s, isQuerySafe) }
 
-// encodeIDBytes encodes every byte as %XX. The id attribute is binary;
-// matching against CKA_ID is byte-for-byte and the RFC examples encode the
-// whole value, so we do too.
-func encodeIDBytes(b []byte) string {
-	out := make([]byte, 0, 3*len(b))
-	for _, c := range b {
-		out = append(out, '%', hexDigit(c>>4), hexDigit(c&0xf))
+func encodeIDBytes(id []byte) string {
+	var b strings.Builder
+	b.Grow(3 * len(id))
+	for _, c := range id {
+		writePercentByte(&b, c)
 	}
-	return string(out)
+	return b.String()
 }
 
-func percentEncode(s string, safe func(byte) bool) string {
-	out := make([]byte, 0, len(s))
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if safe(c) {
-			out = append(out, c)
-			continue
-		}
-		out = append(out, '%', hexDigit(c>>4), hexDigit(c&0xf))
-	}
-	return string(out)
-}
-
-func hexDigit(n byte) byte {
-	if n < 10 {
-		return '0' + n
-	}
-	return 'A' + n - 10
-}
-
-// decodePathString percent-decodes s and validates its characters per pk11-pchar.
 func decodePathString(s string) (string, error) {
-	b, err := decodePathBytes(s)
-	if err != nil {
-		return "", err
-	}
-	return string(b), nil
+	return decodeText(s, isPathSafe)
 }
 
-// decodeQueryString percent-decodes s and validates its characters per pk11-qchar.
 func decodeQueryString(s string) (string, error) {
-	b, err := percentDecode(s, isQuerySafe)
+	return decodeText(s, isQuerySafe)
+}
+
+func decodeText(s string, safe func(byte) bool) (string, error) {
+	decoded, err := percentDecode(s, safe)
 	if err != nil {
 		return "", err
 	}
-	return string(b), nil
+	if !utf8.Valid(decoded) {
+		return "", uriErrorf("decoded value is not valid UTF-8")
+	}
+	return string(decoded), nil
 }
 
 func decodePathBytes(s string) ([]byte, error) {
@@ -735,32 +795,33 @@ func percentDecode(s string, safe func(byte) bool) ([]byte, error) {
 		switch {
 		case c == '%':
 			if i+2 >= len(s) {
-				return nil, oops.In(ServiceName).Errorf("truncated percent-encoding at offset %d", i)
+				return nil, uriErrorf("truncated percent-encoding at offset %d", i)
 			}
-			hi, e1 := hexValue(s[i+1])
-			lo, e2 := hexValue(s[i+2])
-			if e1 != nil || e2 != nil {
-				return nil, oops.In(ServiceName).Errorf("invalid percent-encoding %q", s[i:i+3])
+			hi, okHi := hexValue(s[i+1])
+			lo, okLo := hexValue(s[i+2])
+			if !okHi || !okLo {
+				return nil, uriErrorf("invalid percent-encoding %q", s[i:i+3])
 			}
 			out = append(out, hi<<4|lo)
 			i += 2
 		case safe(c):
 			out = append(out, c)
 		default:
-			return nil, oops.In(ServiceName).Errorf("disallowed character %q at offset %d", c, i)
+			return nil, uriErrorf("disallowed character %q at offset %d", c, i)
 		}
 	}
 	return out, nil
 }
 
-func hexValue(c byte) (byte, error) {
+func hexValue(c byte) (byte, bool) {
 	switch {
 	case c >= '0' && c <= '9':
-		return c - '0', nil
+		return c - '0', true
 	case c >= 'a' && c <= 'f':
-		return c - 'a' + 10, nil
+		return c - 'a' + 10, true
 	case c >= 'A' && c <= 'F':
-		return c - 'A' + 10, nil
+		return c - 'A' + 10, true
+	default:
+		return 0, false
 	}
-	return 0, oops.In(ServiceName).Errorf("invalid hex digit %q", c)
 }
