@@ -201,9 +201,12 @@ type Logger interface {
 
 var GlobalLog = GetDefaultLogger(os.Stdout, nil)
 
-func GetDefaultLogger(w io.Writer, oLog otellog.Logger) Logger {
+func init() {
 	zerolog.ErrorStackMarshaler = oopszerolog.OopsStackMarshaller
 	//zerolog.ErrorMarshalFunc = oopszerolog.OopsMarshalFunc
+}
+
+func GetDefaultLogger(w io.Writer, oLog otellog.Logger) Logger {
 
 	// create a thread-safe, lock-free, non-blocking writer
 	// this prevents logging from blocking the application
