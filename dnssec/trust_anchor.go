@@ -1,5 +1,7 @@
 package dnssec
 
+import "sync"
+
 // TrustAnchor identifies a DNSSEC DS record trusted without walking to its
 // parent. The owner is normally "." for the public DNS root, but may name an
 // internal enterprise zone.
@@ -11,9 +13,24 @@ type TrustAnchor struct {
 	Digest     string
 }
 
-// IANARootTrustAnchors returns the current ICANN root KSK trust anchors. A new
-// slice is returned so callers cannot mutate package defaults.
+var ianaRootTrustAnchorState = struct {
+	sync.RWMutex
+	anchors []TrustAnchor
+}{
+	anchors: embeddedIANARootTrustAnchors(),
+}
+
+// IANARootTrustAnchors returns the currently active ICANN root KSK trust
+// anchors. The set initially contains embedded known-good anchors and may be
+// replaced by RefreshIANARootTrustAnchors after verifying IANA's signed
+// publication. A new slice is returned so callers cannot mutate package state.
 func IANARootTrustAnchors() []TrustAnchor {
+	ianaRootTrustAnchorState.RLock()
+	defer ianaRootTrustAnchorState.RUnlock()
+	return append([]TrustAnchor(nil), ianaRootTrustAnchorState.anchors...)
+}
+
+func embeddedIANARootTrustAnchors() []TrustAnchor {
 	return []TrustAnchor{
 		{
 			Owner:      ".",
@@ -30,6 +47,12 @@ func IANARootTrustAnchors() []TrustAnchor {
 			Digest:     "683D2D0ACB8C9B712A1948B27F741219298D0A450D612C483AF444A4C0FB2B16",
 		},
 	}
+}
+
+func replaceIANARootTrustAnchors(anchors []TrustAnchor) {
+	ianaRootTrustAnchorState.Lock()
+	defer ianaRootTrustAnchorState.Unlock()
+	ianaRootTrustAnchorState.anchors = append([]TrustAnchor(nil), anchors...)
 }
 
 // AddTrustAnchor adds one permanent trust anchor to the validator.
