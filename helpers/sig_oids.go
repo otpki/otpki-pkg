@@ -2,13 +2,15 @@ package helpers
 
 import (
 	"crypto"
-	"crypto/circl"
+
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rsa"
-	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
+
+	"github.com/otpki/iogo/crypto/circl"
+	"github.com/otpki/iogo/crypto/x509"
 
 	"github.com/otpki/otpki-pkg/oids"
 	"github.com/samber/oops"

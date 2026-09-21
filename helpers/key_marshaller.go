@@ -4,10 +4,11 @@ import (
 	"crypto"
 	"crypto/ed25519"
 	"crypto/sha1"
-	"crypto/x509"
 	"encoding/hex"
 	"encoding/pem"
 	"strings"
+
+	"github.com/otpki/iogo/crypto/x509"
 
 	"github.com/samber/oops"
 	"go.step.sm/crypto/pemutil"

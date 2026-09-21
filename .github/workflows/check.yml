@@ -30,6 +30,8 @@ jobs:
           ${{ github.event.repository.name }}
           otpki-protobuf
           scep
+          iogo
+          circl
 
     - name: Configure git for private GitHub deps
       run: |
@@ -46,12 +48,10 @@ jobs:
         role-to-assume: ${{ env.AWS_ROLE_ARN }}
         aws-region: ${{ env.AWS_REGION }}
 
-    - name: Setup IOGO
-      uses: otpki/setup-iogo@v1
+    - name: Setup GO
+      uses: actions/setup-go@v7
       with:
         go-version: 1.27.0
-        bucket-name: ${{ env.AWS_ARTIFACT_BUCKET_NAME }}
-        aws-region: ${{ env.AWS_REGION }}
 
     - name: Setup Just
       uses: extractions/setup-just@v3

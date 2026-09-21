@@ -6,7 +6,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"errors"
@@ -15,6 +14,8 @@ import (
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/otpki/iogo/crypto/x509"
 
 	"github.com/otpki/otpki-pkg/oids"
 	"github.com/stretchr/testify/require"
@@ -79,7 +80,9 @@ func TestOCSPStatus(t *testing.T) {
 		{name: "future", status: ocsp.Good, thisUpdate: now.Add(10 * time.Minute), nextUpdate: now.Add(time.Hour), wantErr: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			response, err := ocsp.CreateResponse(issuer, issuer, ocsp.Response{
+			stdIssuer, err := issuer.ToStdX509()
+			require.NoError(t, err)
+			response, err := ocsp.CreateResponse(stdIssuer, stdIssuer, ocsp.Response{
 				Status: test.status, SerialNumber: leaf.SerialNumber,
 				ThisUpdate: test.thisUpdate, NextUpdate: test.nextUpdate,
 				RevokedAt: now.Add(-time.Hour),
@@ -189,7 +192,9 @@ func TestCRLFallbackAndRevokedPrecedence(t *testing.T) {
 		{name: "revoked CRL overrides good OCSP", ocspStatus: ocsp.Good, crlRevoked: true, wantRevoked: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			ocspDER, err := ocsp.CreateResponse(issuer, issuer, ocsp.Response{
+			stdIssuer, err := issuer.ToStdX509()
+			require.NoError(t, err)
+			ocspDER, err := ocsp.CreateResponse(stdIssuer, stdIssuer, ocsp.Response{
 				Status: test.ocspStatus, SerialNumber: leaf.SerialNumber,
 				ThisUpdate: now.Add(-time.Minute), NextUpdate: now.Add(time.Hour),
 			}, issuerKey)

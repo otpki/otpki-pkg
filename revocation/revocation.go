@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"crypto"
-	"crypto/x509"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -17,6 +16,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/otpki/iogo/crypto/x509"
 
 	"github.com/otpki/otpki-pkg/oids"
 	"golang.org/x/crypto/ocsp"
@@ -84,8 +85,16 @@ func CheckChain(ctx context.Context, chain []*x509.Certificate, options Options)
 func checkCertificate(ctx context.Context, client *http.Client, cert, issuer *x509.Certificate, now time.Time) error {
 	var lastErr error
 	good := false
+	stdCert, err := cert.ToStdX509()
+	if err != nil {
+		return err
+	}
+	stdIssuer, err := issuer.ToStdX509()
+	if err != nil {
+		return err
+	}
 	for _, endpoint := range cert.OCSPServer[:min(len(cert.OCSPServer), 3)] {
-		requestDER, err := ocsp.CreateRequest(cert, issuer, &ocsp.RequestOptions{Hash: crypto.SHA1})
+		requestDER, err := ocsp.CreateRequest(stdCert, stdIssuer, &ocsp.RequestOptions{Hash: crypto.SHA1})
 		if err != nil {
 			return err
 		}
@@ -94,7 +103,7 @@ func checkCertificate(ctx context.Context, client *http.Client, cert, issuer *x5
 			lastErr = err
 			continue
 		}
-		response, err := ocsp.ParseResponseForCert(responseDER, cert, issuer)
+		response, err := ocsp.ParseResponseForCert(responseDER, stdCert, stdIssuer)
 		if err != nil || response.ThisUpdate.After(now.Add(5*time.Minute)) || response.NextUpdate.IsZero() || !now.Before(response.NextUpdate) {
 			lastErr = fmt.Errorf("OCSP response is invalid or stale")
 			continue

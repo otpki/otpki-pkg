@@ -1,12 +1,13 @@
 package helpers
 
 import (
-	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"net"
 	"net/url"
 	"unicode"
+
+	"github.com/otpki/iogo/crypto/x509"
 
 	"github.com/otpki/otpki-pkg/oids"
 	"github.com/samber/oops"

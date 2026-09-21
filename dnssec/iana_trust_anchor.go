@@ -3,7 +3,7 @@ package dnssec
 import (
 	"bytes"
 	"context"
-	"crypto/x509"
+	stdX509 "crypto/x509"
 	_ "embed"
 	"encoding/hex"
 	"encoding/xml"
@@ -13,6 +13,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/otpki/iogo/crypto/x509"
 
 	"codeberg.org/miekg/dns"
 	"codeberg.org/miekg/dns/rdata"
@@ -122,7 +124,7 @@ func downloadIANATrustAnchorFile(ctx context.Context, client *http.Client, url s
 }
 
 func verifyIANATrustAnchorSignature(content, signature, trustedRootsPEM []byte, now time.Time) error {
-	trustedRoots := x509.NewCertPool()
+	trustedRoots := stdX509.NewCertPool()
 	if !trustedRoots.AppendCertsFromPEM(trustedRootsPEM) {
 		return errors.New("parse embedded ICANN root certificates")
 	}
@@ -137,10 +139,14 @@ func verifyIANATrustAnchorSignature(content, signature, trustedRootsPEM []byte, 
 	if signer == nil {
 		return errors.New("IANA root trust-anchor signature must contain exactly one signer")
 	}
-	if signer.KeyUsage&x509.KeyUsageDigitalSignature == 0 {
+	x509Signer, err := x509.CertificateFromStdX509(signer)
+	if err != nil {
+		return fmt.Errorf("converting x509 certificate to iogo: %w", err)
+	}
+	if x509Signer.KeyUsage&x509.KeyUsageDigitalSignature == 0 {
 		return errors.New("IANA root trust-anchor signer is not permitted to create digital signatures")
 	}
-	if !hasExtendedKeyUsage(signer, x509.ExtKeyUsageEmailProtection) {
+	if !hasExtendedKeyUsage(x509Signer, x509.ExtKeyUsageEmailProtection) {
 		return errors.New("IANA root trust-anchor signer is not permitted to sign S/MIME content")
 	}
 	signedData.Content = content

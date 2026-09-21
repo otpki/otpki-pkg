@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"fmt"
@@ -15,6 +14,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/otpki/iogo/crypto/x509"
 
 	"github.com/smallstep/pkcs7"
 	"github.com/stretchr/testify/require"
@@ -195,7 +196,9 @@ func signTestIANAPublication(t *testing.T, publication []byte, now time.Time) ([
 
 	signedData, err := pkcs7.NewSignedData(publication)
 	require.NoError(t, err)
-	require.NoError(t, signedData.AddSigner(certificate, key, pkcs7.SignerInfoConfig{}))
+	x509Cert, err := certificate.ToStdX509()
+	require.NoError(t, err)
+	require.NoError(t, signedData.AddSigner(x509Cert, key, pkcs7.SignerInfoConfig{}))
 	signedData.Detach()
 	signature, err := signedData.Finish()
 	require.NoError(t, err)

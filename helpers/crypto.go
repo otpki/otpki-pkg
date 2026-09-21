@@ -6,7 +6,6 @@ import (
 	"crypto/rand"
 	"crypto/sha1"
 	"crypto/sha256"
-	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/base64"
@@ -16,6 +15,8 @@ import (
 	"net/url"
 	"os"
 	"strings"
+
+	"github.com/otpki/iogo/crypto/x509"
 
 	"github.com/samber/oops"
 	"github.com/smallstep/pkcs7"
@@ -195,7 +196,16 @@ func LoadCertificateChainFromP7b(p7bData []byte) ([]*x509.Certificate, error) {
 		if err != nil {
 			return nil, oops.In(ServiceName).Wrapf(err, "parsing P7B chain")
 		}
-		certs = append(certs, p7.Certificates...)
+		// Convert stdlib x509 to
+		convertedCerts := make([]*x509.Certificate, len(p7.Certificates))
+		for _, c := range p7.Certificates {
+			cert, err := x509.CertificateFromStdX509(c)
+			if err != nil {
+				return nil, oops.In(ServiceName).New("failed to parse x509 cert to iogo x509 cert")
+			}
+			convertedCerts = append(convertedCerts, cert)
+		}
+		certs = append(certs, convertedCerts...)
 		if len(certs) == 0 { // Should err if there is data, but nothing parsed
 			return nil, oops.In(ServiceName).New("no certificates found in P7B data")
 		}

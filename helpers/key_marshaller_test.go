@@ -4,10 +4,12 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/x509"
+	stdX509 "crypto/x509"
 	"encoding/pem"
 	"strings"
 	"testing"
+
+	"github.com/otpki/iogo/crypto/x509"
 
 	"github.com/stretchr/testify/require"
 	"go.step.sm/crypto/pemutil"
@@ -37,7 +39,7 @@ func TestNormalizePrivateKeyToPKCS8PEM_EncryptedPKCS8(t *testing.T) {
 		rand.Reader,
 		privateKeyDER,
 		[]byte("secret"),
-		x509.PEMCipherAES256,
+		stdX509.PEMCipherAES256,
 	)
 	require.NoError(t, err)
 
