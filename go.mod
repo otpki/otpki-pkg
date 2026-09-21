@@ -3,8 +3,8 @@ module github.com/otpki/otpki-pkg
 go 1.27.0
 
 require (
-	codeberg.org/miekg/dns v0.6.101
-	connectrpc.com/connect v1.20.0
+	codeberg.org/miekg/dns v0.6.115
+	connectrpc.com/connect v1.21.0
 	github.com/apache/pulsar-client-go v0.21.0
 	github.com/dapr/kit v0.18.3
 	github.com/google/uuid v1.6.0
@@ -14,20 +14,20 @@ require (
 	github.com/jung-kurt/gofpdf v1.16.2
 	github.com/miekg/pkcs11 v1.1.2
 	github.com/rs/zerolog v1.35.1
-	github.com/samber/oops v1.23.0
-	github.com/samber/oops/loggers/zerolog v0.0.0-20260801193442-27d16674d0e5
+	github.com/samber/oops v1.23.2
+	github.com/samber/oops/loggers/zerolog v0.0.0-20260914184238-a635f5aaea5d
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/smallstep/pkcs7 v0.2.3
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
-	github.com/stretchr/testify v1.12.0
+	github.com/stretchr/testify v1.12.1
 	github.com/xhit/go-simple-mail/v2 v2.16.0
-	go.opentelemetry.io/otel v1.45.0
-	go.opentelemetry.io/otel/log v0.21.0
-	go.opentelemetry.io/otel/trace v1.45.0
-	go.step.sm/crypto v0.89.0
-	golang.org/x/crypto v0.55.0
-	google.golang.org/grpc v1.83.0
+	go.opentelemetry.io/otel v1.46.0
+	go.opentelemetry.io/otel/log v0.22.0
+	go.opentelemetry.io/otel/trace v1.46.0
+	go.step.sm/crypto v0.91.0
+	golang.org/x/crypto v0.57.0
+	google.golang.org/grpc v1.84.0
 	google.golang.org/protobuf v1.36.12
 	gorm.io/gorm v1.31.2
 )
@@ -48,19 +48,17 @@ require (
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/sagikazarmark/locafero v0.12.0 // indirect
 	github.com/samber/lo v1.53.0 // indirect
-	github.com/sirupsen/logrus v1.10.0 // indirect
+	github.com/sirupsen/logrus v1.10.2 // indirect
 	github.com/spf13/afero v1.15.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/toorop/go-dkim v0.0.0-20250226130143-9025cce95817 // indirect
-	go.uber.org/atomic v1.11.0 // indirect
+	go.uber.org/atomic v1.12.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	golang.org/x/net v0.58.0 // indirect
-	golang.org/x/sys v0.47.0 // indirect
-	golang.org/x/text v0.41.0 // indirect
-	golang.org/x/time v0.15.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260810153831-ec0a7760b754 // indirect
-	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
+	golang.org/x/net v0.59.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
+	golang.org/x/text v0.42.0 // indirect
+	golang.org/x/time v0.16.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260921155816-b14227669459 // indirect
 )

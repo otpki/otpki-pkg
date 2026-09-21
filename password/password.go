@@ -5,84 +5,393 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"fmt"
+	"runtime"
+	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/samber/oops"
 	"golang.org/x/crypto/argon2"
 )
 
-// Argon2
 const (
 	saltLength = 16
 	keyLength  = 32
-	time       = 3
-	memory     = 64 * 1024
-	threads    = 4
+
+	// Parameters used when creating new hashes.
+	//
+	// Parallelism is selected dynamically based on the CPU resources
+	// available to the Go process.
+	hashTime   uint32 = 2
+	hashMemory uint32 = 19 * 1024 // KiB
+
+	// Verification limits.
+	//
+	// VerifyPassword reads Argon2 parameters from the encoded hash. These
+	// limits prevent malformed or malicious stored hashes from requesting
+	// unreasonable amounts of CPU or memory.
+	maxVerifyMemory  uint32 = 256 * 1024 // 256 MiB
+	maxVerifyTime    uint32 = 10
+	maxVerifyThreads uint32 = 16
+
+	minVerifySaltLength = 8
+	maxVerifySaltLength = 64
+
+	minVerifyKeyLength = 16
+	maxVerifyKeyLength = 64
 )
 
-// Argon password hashing
+// limiter controls the total number of Argon2 operations running in this
+// process.
+//
+// Argon2 is both CPU and memory-intensive. Without a limiter, a burst of
+// enrollment or authentication requests could cause hundreds of hashes to
+// execute simultaneously and severely reduce throughput.
+//
+// A mutex + condition variable is used rather than a buffered channel so the
+// effective concurrency limit can follow GOMAXPROCS if it changes at runtime.
+var limiter = newAdaptiveLimiter()
+
+type adaptiveLimiter struct {
+	mu     sync.Mutex
+	cond   *sync.Cond
+	active int
+}
+
+func newAdaptiveLimiter() *adaptiveLimiter {
+	l := &adaptiveLimiter{}
+	l.cond = sync.NewCond(&l.mu)
+	return l
+}
+
+// acquire waits until another Argon2 operation may run.
+func (l *adaptiveLimiter) acquire() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	for l.active >= maxConcurrentHashes(runtime.GOMAXPROCS(0)) {
+		l.cond.Wait()
+	}
+
+	l.active++
+}
+
+// release releases one Argon2 execution slot.
+func (l *adaptiveLimiter) release() {
+	l.mu.Lock()
+
+	if l.active <= 0 {
+		l.mu.Unlock()
+		panic("password: hash limiter released without acquire")
+	}
+
+	l.active--
+	l.cond.Broadcast()
+
+	l.mu.Unlock()
+}
+
+// hashThreads returns the Argon2 parallelism to use when creating a new hash.
+//
+// The benchmark results for this package showed that p=4 substantially
+// improves individual hash latency while retaining excellent aggregate
+// throughput when enough CPUs are available.
+//
+// GOMAXPROCS is intentionally used instead of runtime.NumCPU because it
+// represents the CPU parallelism actually available to Go.
+func hashThreads(procs int) uint8 {
+	switch {
+	case procs >= 4:
+		return 4
+	case procs >= 2:
+		return 2
+	default:
+		return 1
+	}
+}
+
+// maxConcurrentHashes returns the maximum number of Argon2 operations that
+// may run simultaneously in this process.
+//
+// The scaling is deliberately different from Argon2's internal parallelism.
+// Multiple independent hashes need to remain in flight to achieve maximum
+// aggregate throughput.
+//
+// The measured 14-CPU M3 Max therefore gets a limit of 8:
+//
+//	1 CPU  -> 1
+//	2 CPUs -> 2
+//	4 CPUs -> 3
+//	8 CPUs -> 5
+//	14 CPUs -> 8
+//	16 CPUs -> 9
+//
+// This also bounds active Argon2 memory for hashes produced by the current
+// implementation. At 14 CPUs:
+//
+//	8 * 19 MiB ~= 152 MiB
+func maxConcurrentHashes(procs int) int {
+	if procs <= 1 {
+		return 1
+	}
+
+	return (procs + 2) / 2
+}
+
+// deriveKey is the single entry point for expensive Argon2 work.
+//
+// Hash creation and verification both pass through the same process-wide
+// limiter.
+func deriveKey(
+	password []byte,
+	salt []byte,
+	time uint32,
+	memory uint32,
+	threads uint8,
+	keyLength uint32,
+) []byte {
+	limiter.acquire()
+	defer limiter.release()
+
+	return argon2.IDKey(
+		password,
+		salt,
+		time,
+		memory,
+		threads,
+		keyLength,
+	)
+}
+
+// HashPassword creates an Argon2id password hash.
+//
+// The returned value uses the standard Argon2 encoded representation:
+//
+//	$argon2id$v=19$m=19456,t=2,p=4$<salt>$<hash>
+//
+// Parameters are embedded in every hash so they can safely change in the
+// future without making existing hashes unverifiable.
 func HashPassword(password string) (string, error) {
-	// Random salt
 	salt := make([]byte, saltLength)
 	if _, err := rand.Read(salt); err != nil {
 		return "", oops.Errorf("failed to generate salt: %w", err)
 	}
 
-	hash := argon2.IDKey([]byte(password), salt, time, memory, threads, keyLength)
+	threads := hashThreads(runtime.GOMAXPROCS(0))
+
+	hash := deriveKey(
+		[]byte(password),
+		salt,
+		hashTime,
+		hashMemory,
+		threads,
+		keyLength,
+	)
+
 	b64Salt := base64.RawStdEncoding.EncodeToString(salt)
 	b64Hash := base64.RawStdEncoding.EncodeToString(hash)
 
-	encoded := fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s",
-		argon2.Version, memory, time, threads, b64Salt, b64Hash)
-
-	return encoded, nil
+	return fmt.Sprintf(
+		"$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s",
+		argon2.Version,
+		hashMemory,
+		hashTime,
+		threads,
+		b64Salt,
+		b64Hash,
+	), nil
 }
 
-// Compare string to password hash for auth
+// VerifyPassword verifies a password against an encoded Argon2id hash.
+//
+// Parameters stored in the hash are used instead of the parameters currently
+// used by HashPassword. This allows hashes generated by older versions of the
+// application to remain valid after tuning parameters change.
 func VerifyPassword(password, encodedHash string) (bool, error) {
 	if encodedHash == "" {
 		return false, nil
 	}
 
-	// Split hash
+	params, err := parseHash(encodedHash)
+	if err != nil {
+		return false, err
+	}
+
+	hash := deriveKey(
+		[]byte(password),
+		params.salt,
+		params.time,
+		params.memory,
+		params.threads,
+		uint32(len(params.hash)),
+	)
+
+	return subtle.ConstantTimeCompare(hash, params.hash) == 1, nil
+}
+
+type hashParams struct {
+	memory  uint32
+	time    uint32
+	threads uint8
+
+	salt []byte
+	hash []byte
+}
+
+func parseHash(encodedHash string) (hashParams, error) {
+	var params hashParams
+
 	parts := strings.Split(encodedHash, "$")
 	if len(parts) != 6 {
-		return false, oops.Errorf("invalid hash format")
+		return params, oops.Errorf("invalid hash format")
+	}
+
+	// Because an encoded hash starts with "$", parts[0] must be empty.
+	if parts[0] != "" {
+		return params, oops.Errorf("invalid hash format")
 	}
 
 	if parts[1] != "argon2id" {
-		return false, oops.Errorf("unsupported hash algorithm")
+		return params, oops.Errorf(
+			"unsupported hash algorithm: %q",
+			parts[1],
+		)
 	}
 
-	var version int
-	_, err := fmt.Sscanf(parts[2], "v=%d", &version)
+	version, err := parsePrefixedUint32(parts[2], "v=")
 	if err != nil {
-		return false, oops.Errorf("invalid version: %w", err)
+		return params, oops.Errorf("invalid Argon2 version: %w", err)
 	}
 
-	if version != argon2.Version {
-		return false, oops.Errorf("incompatible argon2 version")
+	if version != uint32(argon2.Version) {
+		return params, oops.Errorf(
+			"incompatible Argon2 version: %d",
+			version,
+		)
 	}
 
-	var m, t, p uint32
-	_, err = fmt.Sscanf(parts[3], "m=%d,t=%d,p=%d", &m, &t, &p)
+	memory, time, threads, err := parseParameters(parts[3])
 	if err != nil {
-		return false, oops.Errorf("invalid parameters: %w", err)
+		return params, err
+	}
+
+	if memory == 0 || memory > maxVerifyMemory {
+		return params, oops.Errorf(
+			"invalid Argon2 memory parameter: %d",
+			memory,
+		)
+	}
+
+	if time == 0 || time > maxVerifyTime {
+		return params, oops.Errorf(
+			"invalid Argon2 time parameter: %d",
+			time,
+		)
+	}
+
+	if threads == 0 || threads > maxVerifyThreads {
+		return params, oops.Errorf(
+			"invalid Argon2 parallelism parameter: %d",
+			threads,
+		)
 	}
 
 	salt, err := base64.RawStdEncoding.DecodeString(parts[4])
 	if err != nil {
-		return false, oops.Errorf("invalid salt: %w", err)
+		return params, oops.Errorf(
+			"invalid salt encoding: %w",
+			err,
+		)
+	}
+
+	if len(salt) < minVerifySaltLength ||
+		len(salt) > maxVerifySaltLength {
+		return params, oops.Errorf(
+			"invalid salt length: %d",
+			len(salt),
+		)
 	}
 
 	expectedHash, err := base64.RawStdEncoding.DecodeString(parts[5])
 	if err != nil {
-		return false, oops.Errorf("invalid hash: %w", err)
+		return params, oops.Errorf(
+			"invalid hash encoding: %w",
+			err,
+		)
 	}
 
-	// Get hash of string input
-	hash := argon2.IDKey([]byte(password), salt, t, m, uint8(p), uint32(len(expectedHash)))
+	if len(expectedHash) < minVerifyKeyLength ||
+		len(expectedHash) > maxVerifyKeyLength {
+		return params, oops.Errorf(
+			"invalid hash length: %d",
+			len(expectedHash),
+		)
+	}
 
-	// Compare against existing hash
-	return subtle.ConstantTimeCompare(hash, expectedHash) == 1, nil
+	params.memory = memory
+	params.time = time
+	params.threads = uint8(threads)
+	params.salt = salt
+	params.hash = expectedHash
+
+	return params, nil
+}
+
+// parseParameters parses:
+//
+//	m=19456,t=2,p=4
+func parseParameters(value string) (memory, time, threads uint32, err error) {
+	parts := strings.Split(value, ",")
+	if len(parts) != 3 {
+		return 0, 0, 0, oops.Errorf(
+			"invalid Argon2 parameter format",
+		)
+	}
+
+	memory, err = parsePrefixedUint32(parts[0], "m=")
+	if err != nil {
+		return 0, 0, 0, oops.Errorf(
+			"invalid Argon2 memory parameter: %w",
+			err,
+		)
+	}
+
+	time, err = parsePrefixedUint32(parts[1], "t=")
+	if err != nil {
+		return 0, 0, 0, oops.Errorf(
+			"invalid Argon2 time parameter: %w",
+			err,
+		)
+	}
+
+	threads, err = parsePrefixedUint32(parts[2], "p=")
+	if err != nil {
+		return 0, 0, 0, oops.Errorf(
+			"invalid Argon2 parallelism parameter: %w",
+			err,
+		)
+	}
+
+	return memory, time, threads, nil
+}
+
+func parsePrefixedUint32(value, prefix string) (uint32, error) {
+	if !strings.HasPrefix(value, prefix) {
+		return 0, oops.Errorf(
+			"expected %q prefix",
+			prefix,
+		)
+	}
+
+	raw := value[len(prefix):]
+	if raw == "" {
+		return 0, oops.Errorf("missing value")
+	}
+
+	n, err := strconv.ParseUint(raw, 10, 32)
+	if err != nil {
+		return 0, err
+	}
+
+	return uint32(n), nil
 }
