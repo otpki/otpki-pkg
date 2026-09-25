@@ -24,6 +24,7 @@ var (
 	OidKerberosPrincipalName      = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 2, 2}
 	OidHardwareModuleName         = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 8, 4}
 	OidDomainComponent            = asn1.ObjectIdentifier{0, 9, 2342, 19200300, 100, 1, 25}
+	OidUserID                     = asn1.ObjectIdentifier{0, 9, 2342, 19200300, 100, 1, 1}
 	OidDeltaCRLIndicator          = asn1.ObjectIdentifier{2, 5, 29, 27}
 	OidKeyUsage                   = asn1.ObjectIdentifier{2, 5, 29, 15}
 	OidExtKeyUsage                = asn1.ObjectIdentifier{2, 5, 29, 37} // id-ce-extKeyUsage
@@ -54,6 +55,8 @@ var (
 	OidASN1SHA3_384             = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 9}
 	OidASN1SHA3_512             = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 10}
 	OidMD5WithRSA               = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 4}
+	OidRSAEncryption            = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 1}
+	OidECPublicKey              = asn1.ObjectIdentifier{1, 2, 840, 10045, 2, 1}
 	OidSignatureSHA1WithRSA     = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 5}
 	OidMGF1                     = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 8}
 	OidRSASSAPSS                = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 10}
@@ -97,6 +100,10 @@ var (
 	OidStreetAddress      = asn1.ObjectIdentifier{2, 5, 4, 9}
 	OidPostalCode         = asn1.ObjectIdentifier{2, 5, 4, 17}
 	OidEmail              = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 1}
+	OidChallengePassword  = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 7}
+	OidExtensionRequest   = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 14}
+	OidCSRTemplate        = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 16, 2, 61}
+	OidExtensionReqTemplate = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 16, 2, 62}
 
 	OidReasonCode          = asn1.ObjectIdentifier{2, 5, 29, 21}
 	OidHoldInstructionCode = asn1.ObjectIdentifier{2, 5, 29, 23}
