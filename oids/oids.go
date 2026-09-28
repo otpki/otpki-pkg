@@ -19,6 +19,55 @@ var (
 	OidCTPKIResponse           = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 12, 3}
 	OidCMCStatusInfo           = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 1}
 
+	// CMC controls — RFC 10002 (Certificate Management over CMS, obsoletes
+	// RFCs 5272 and 6402). id-cmc OBJECT IDENTIFIER ::= { id-pkix 7 }
+	OidCMCIdentification        = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 2}
+	OidCMCIdentityProof         = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 3}
+	OidCMCDataReturn            = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 4}
+	OidCMCTransactionID         = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 5}
+	OidCMCSenderNonce           = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 6}
+	OidCMCRecipientNonce        = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 7}
+	OidCMCAddExtensions         = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 8}
+	OidCMCEncryptedPOP          = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 9}
+	OidCMCDecryptedPOP          = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 10}
+	OidCMCLRAPOPWitness         = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 11}
+	OidCMCGetCert               = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 15}
+	OidCMCGetCRL                = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 16}
+	OidCMCRevokeRequest         = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 17}
+	OidCMCRegInfo               = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 18}
+	OidCMCResponseInfo          = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 19}
+	OidCMCQueryPending          = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 21}
+	OidCMCPopLinkRandom         = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 22}
+	OidCMCPopLinkWitness        = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 23}
+	OidCMCConfirmCertAcceptance = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 24}
+	OidCMCStatusInfoV2          = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 25}
+	OidCMCTrustedAnchors        = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 26}
+	OidCMCAuthData              = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 27}
+	OidCMCBatchRequests         = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 28}
+	OidCMCBatchResponses        = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 29}
+	OidCMCPublishCert           = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 30}
+	OidCMCModCertTemplate       = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 31}
+	OidCMCControlProcessed      = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 32}
+	OidCMCPopLinkWitnessV2      = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 33}
+	OidCMCIdentityProofV2       = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 34}
+	OidCMCRAIdentityWitness     = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 35}
+	OidCMCChangeSubjectName     = OidAttributeChangeSubjectName // id-cmc 36
+	OidCMCResponseBody          = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 7, 37}
+
+	// CMC content types — id-cct OBJECT IDENTIFIER ::= { id-pkix 12 }
+	OidCTPKIData = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 12, 2}
+
+	// id-aa-cmcUnsignedData - { smime(16) id-aa(2) 34 }, carries an unsigned
+	// PKIResponse inside an AuthenticatedData envelope (RFC 10002).
+	OidAACMCUnsignedData = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 16, 2, 34}
+
+	// id-alg-noSignature — { id-pkix id-alg(6) 2 }: on a certification request
+	// for a key pair that cannot sign (POP via encrypted/decrypted POP).
+	OidAlgNoSignature = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 6, 2}
+
+	// id-ad-cmc — { id-ad 12 }, CMC access descriptor.
+	OidADCMC = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 48, 12}
+
 	OidSubjectAltName             = asn1.ObjectIdentifier{2, 5, 29, 17}
 	OidIssuerAltName              = asn1.ObjectIdentifier{2, 5, 29, 18}
 	OidKerberosPrincipalName      = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 2, 2}
@@ -87,6 +136,11 @@ var (
 	OidExtKeyUsageMicrosoftCommercialCodeSigning = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 311, 2, 1, 22}
 	OidExtKeyUsageMicrosoftKernelCodeSigning     = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 311, 61, 1, 1}
 
+	// CMC key purposes for authority certificates (RFC 10002 A.1)
+	OidExtKeyUsageCMCCA      = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 3, 27}
+	OidExtKeyUsageCMCRA      = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 3, 28}
+	OidExtKeyUsageCMCArchive = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 3, 29}
+
 	OidCountry            = asn1.ObjectIdentifier{2, 5, 4, 6}
 	OidOrganization       = asn1.ObjectIdentifier{2, 5, 4, 10}
 	OidOrganizationalUnit = asn1.ObjectIdentifier{2, 5, 4, 11}
@@ -109,6 +163,7 @@ var (
 
 	OidHMACWithSHA1_PKCS = asn1.ObjectIdentifier{1, 2, 840, 113549, 2, 7}
 	OidHMACWithSHA1_IKE  = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 8, 1, 2}
+	OidHMACWithSHA224    = asn1.ObjectIdentifier{1, 2, 840, 113549, 2, 8}
 	OidHMACWithSHA256    = asn1.ObjectIdentifier{1, 2, 840, 113549, 2, 9}
 	OidHMACWithSHA384    = asn1.ObjectIdentifier{1, 2, 840, 113549, 2, 10}
 	OidHMACWithSHA512    = asn1.ObjectIdentifier{1, 2, 840, 113549, 2, 11}
@@ -166,4 +221,42 @@ var (
 
 	// ACME OID
 	OidACMEIdentifier = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 1, 31}
+
+	// CMS content types (RFC 5652 / RFC 5083 / RFC 5084)
+	OidContentTypeData              = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 7, 1}
+	OidContentTypeSignedData        = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 7, 2}
+	OidContentTypeEnvelopedData     = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 7, 3}
+	OidContentTypeEncryptedData     = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 7, 6}
+	OidContentTypeAuthenticatedData = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 16, 1, 2}
+	OidContentTypeAuthEnvelopedData = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 16, 1, 23}
+
+	// CMS signed attributes (RFC 5652 / PKCS #9)
+	OidAttributeContentType   = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 3}
+	OidAttributeMessageDigest = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 4}
+
+	// PKCS #9 extensionRequest attribute carried inside a CertificationRequest
+	OidExtensionRequest = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 14}
+
+	// AES content encryption (RFC 3565)
+	OidAES128CBC = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 1, 2}
+	OidAES192CBC = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 1, 22}
+	OidAES256CBC = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 1, 42}
+	OidAES128GCM = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 1, 6}
+	OidAES192GCM = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 1, 26}
+	OidAES256GCM = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 1, 46}
+
+	// AES key wrap (RFC 3394), used inside KeyAgreeRecipientInfo
+	OidAES128Wrap = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 1, 5}
+	OidAES192Wrap = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 1, 25}
+	OidAES256Wrap = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 1, 45}
+
+	// Key transport / key agreement (PKCS #1, SEC 1 / ANSI x9.63 schemes
+	// used by CMS EnvelopedData)
+	OidRSAEncryption              = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 1}
+	OidRSAESOAEP                  = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 7}
+	OidDHSinglePassStdDHSHA1KDF   = asn1.ObjectIdentifier{1, 3, 133, 16, 840, 63, 0, 2}  // dhSinglePass-stdDH-sha1kdf-scheme
+	OidDHSinglePassStdDHSHA256KDF = asn1.ObjectIdentifier{1, 3, 132, 1, 11, 1}           // dhSinglePass-stdDH-sha256kdf-scheme
+	OidDHSinglePassStdDHSHA384KDF = asn1.ObjectIdentifier{1, 3, 132, 1, 11, 2}           // dhSinglePass-stdDH-sha384kdf-scheme
+	OidDHSinglePassStdDHSHA512KDF = asn1.ObjectIdentifier{1, 3, 132, 1, 11, 3}           // dhSinglePass-stdDH-sha512kdf-scheme
+	OidMQVSinglePassSHA1KDF       = asn1.ObjectIdentifier{1, 3, 133, 16, 840, 63, 0, 16} // mqvSinglePass-sha1kdf-scheme
 )
