@@ -137,6 +137,8 @@ func checkCertificate(ctx context.Context, client *http.Client, cert, issuer *x5
 		if isDeltaCRL {
 			// A delta lists only changes, so it cannot determine status by itself.
 			// TODO: Add base+delta CRL processing before using delta entries.
+			// In particular, reason code 8 (removeFromCRL) clears a prior hold;
+			// it must not be treated as a revocation when applying a delta.
 			lastErr = fmt.Errorf("delta CRL status is unsupported without its base CRL")
 			continue
 		}
