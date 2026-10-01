@@ -2,8 +2,6 @@ module github.com/otpki/otpki-pkg
 
 go 1.27.0
 
-replace github.com/cloudflare/circl => github.com/otpki/circl v0.0.0-20260310190244-baa88566ae46
-
 require (
 	codeberg.org/miekg/dns v0.6.115
 	connectrpc.com/connect v1.21.0
@@ -15,7 +13,7 @@ require (
 	github.com/hibiken/asynq v0.26.0
 	github.com/jung-kurt/gofpdf v1.16.2
 	github.com/miekg/pkcs11 v1.1.2
-	github.com/otpki/iogo v0.0.0-20261001180246-ac1307b56cef
+	github.com/otpki/iogo v0.0.0-20261001193614-a2a2dbc66901
 	github.com/rs/zerolog v1.35.1
 	github.com/samber/oops v1.23.2
 	github.com/samber/oops/loggers/zerolog v0.0.0-20260914184238-a635f5aaea5d
@@ -39,7 +37,6 @@ require (
 	filippo.io/bigmod v0.1.0 // indirect
 	filippo.io/edwards25519 v1.2.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/cloudflare/circl v1.6.3 // indirect
 	github.com/fatih/color v1.19.0 // indirect
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
@@ -47,6 +44,7 @@ require (
 	github.com/mattn/go-colorable v0.1.15 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/oklog/ulid/v2 v2.1.2 // indirect
+	github.com/otpki/circl v0.0.0-20261001193338-a5d70b6db5c0 // indirect
 	github.com/pelletier/go-toml/v2 v2.4.3 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/redis/go-redis/v9 v9.22.0 // indirect
