@@ -13,7 +13,7 @@ require (
 	github.com/hibiken/asynq v0.26.0
 	github.com/jung-kurt/gofpdf v1.16.2
 	github.com/miekg/pkcs11 v1.1.2
-	github.com/otpki/iogo v0.0.0-20261001193614-a2a2dbc66901
+	github.com/otpki/iogo v0.0.0-20261007183517-ecc8b0aa7a61
 	github.com/rs/zerolog v1.35.1
 	github.com/samber/oops v1.23.2
 	github.com/samber/oops/loggers/zerolog v0.0.0-20260914184238-a635f5aaea5d
