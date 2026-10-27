@@ -2,48 +2,18 @@ package oopsie
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
 	"github.com/samber/oops"
 )
-
-type publicConnectError struct {
-	public string
-	cause  error
-}
-
-func (e publicConnectError) Error() string {
-	return e.public
-}
-
-func (e publicConnectError) Unwrap() error {
-	return e.cause
-}
-
-func (e publicConnectError) Format(state fmt.State, verb rune) {
-	switch verb {
-	case 'v':
-		if state.Flag('+') && e.cause != nil {
-			_, _ = fmt.Fprintf(state, "%s: %+v", e.public, e.cause)
-			return
-		}
-		fallthrough
-	case 's':
-		_, _ = fmt.Fprint(state, e.public)
-	case 'q':
-		_, _ = fmt.Fprintf(state, "%q", e.public)
-	}
-}
 
 func ToPublicConnectError(err error) error {
 	if err == nil {
 		return nil
 	}
 
-	var connectErr *connect.Error
-	if errors.As(err, &connectErr) {
+	if connectErr, ok := errors.AsType[*connect.Error](err); ok {
 		return connectErr
 	}
 
@@ -61,10 +31,7 @@ func ToPublicConnectError(err error) error {
 		public = DefaultPublicMessage(code)
 	}
 
-	return connect.NewError(code, publicConnectError{
-		public: public,
-		cause:  err,
-	})
+	return connect.NewError(code, public).WithCause(err)
 }
 
 func ConnectCodeOf(err error) connect.Code {
@@ -72,8 +39,7 @@ func ConnectCodeOf(err error) connect.Code {
 		return 0
 	}
 
-	var connectErr *connect.Error
-	if errors.As(err, &connectErr) {
+	if connectErr, ok := errors.AsType[*connect.Error](err); ok {
 		return connectErr.Code()
 	}
 

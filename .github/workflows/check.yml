@@ -13,9 +13,6 @@ jobs:
   check:
     runs-on: ubuntu-latest
     env:
-      AWS_ARTIFACT_BUCKET_NAME: ${{ vars.AWS_ARTIFACT_BUCKET_NAME }}
-      AWS_REGION: ${{ vars.AWS_REGION }}
-      AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
       GOPRIVATE: github.com/otpki/*
 
     steps:
@@ -40,18 +37,13 @@ jobs:
         GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
 
     - name: Checkout code
-      uses: actions/checkout@v6
-
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v6
-      with:
-        role-to-assume: ${{ env.AWS_ROLE_ARN }}
-        aws-region: ${{ env.AWS_REGION }}
+      uses: actions/checkout@v7
 
     - name: Setup GO
       uses: actions/setup-go@v7
       with:
-        go-version: 1.27.0
+        go-version: '1.27'
+        check-latest: true
 
     - name: Setup Just
       uses: extractions/setup-just@v3

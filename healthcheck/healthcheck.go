@@ -3,12 +3,14 @@ package healthcheck
 import (
 	"context"
 	"net/http"
-	"strings"
 
-	"connectrpc.com/connect"
+	"connectrpc.com/connect/v2"
+	"connectrpc.com/connect/v2/connecthttp"
 	"google.golang.org/grpc/health"
 	healthv1 "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 // HealthV1ServiceName is the fully qualified name of the health service.
@@ -55,97 +57,92 @@ func (h *HealthServer) Watch(in *healthv1.HealthCheckRequest, stream healthv1.He
 	return h.grpcHS.Watch(in, stream)
 }
 
-func (h *HealthServer) NewHandler() (string, http.Handler) {
-	const serviceName = "/" + HealthV1ServiceName + "/"
-	mux := http.NewServeMux()
-	check := connect.NewUnaryHandler(
-		serviceName+"Check",
-		func(
-			ctx context.Context,
-			req *connect.Request[healthv1.HealthCheckRequest],
-		) (*connect.Response[healthv1.HealthCheckResponse], error) {
-			checkResponse, err := h.Check(ctx, req.Msg)
-			if err != nil {
-				return nil, err
-			}
-			return connect.NewResponse(checkResponse), nil
-		},
-	)
-	mux.Handle(serviceName+"Check", check)
-	list := connect.NewUnaryHandler(
-		serviceName+"List",
-		func(
-			ctx context.Context,
-			req *connect.Request[healthv1.HealthListRequest],
-		) (*connect.Response[healthv1.HealthListResponse], error) {
-			listResponse, err := h.List(ctx, req.Msg)
-			if err != nil {
-				return nil, err
-			}
-			return connect.NewResponse(listResponse), nil
-		},
-	)
-	mux.Handle(serviceName+"List", list)
-	watch := connect.NewServerStreamHandler(
-		serviceName+"Watch",
-		func(
-			ctx context.Context,
-			req *connect.Request[healthv1.HealthCheckRequest],
-			stream *connect.ServerStream[healthv1.HealthCheckResponse],
-		) error {
-			err := h.Watch(req.Msg, IntercompatibleStream[healthv1.HealthCheckResponse]{connectStream: stream, ctx: ctx})
-			if err != nil {
+// Register exposes Check, List, and Watch on a transport-independent server.
+func (h *HealthServer) Register(server *connect.Server) {
+	methods := healthv1.File_grpc_health_v1_health_proto.Services().ByName("Health").Methods()
+	spec := func(name string, streamType connect.StreamType) connect.Spec {
+		return connect.Spec{Procedure: "/" + HealthV1ServiceName + "/" + name, StreamType: streamType, Schema: methods.ByName(protoreflect.Name(name))}
+	}
+	server.Register(
+		connect.Method{Spec: spec("Check", connect.StreamTypeUnary), Handler: func(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+			var req healthv1.HealthCheckRequest
+			if err := stream.Receive(&req); err != nil {
 				return err
 			}
-			return nil
-		},
+			res, err := h.Check(ctx, &req)
+			if err != nil {
+				return connectHealthError(err)
+			}
+			return stream.Send(res)
+		}},
+		connect.Method{Spec: spec("List", connect.StreamTypeUnary), Handler: func(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+			var req healthv1.HealthListRequest
+			if err := stream.Receive(&req); err != nil {
+				return err
+			}
+			res, err := h.List(ctx, &req)
+			if err != nil {
+				return connectHealthError(err)
+			}
+			return stream.Send(res)
+		}},
+		connect.Method{Spec: spec("Watch", connect.StreamTypeServer), Handler: func(ctx context.Context, _ connect.Spec, stream connect.ServerStream) error {
+			var req healthv1.HealthCheckRequest
+			if err := stream.Receive(&req); err != nil {
+				return err
+			}
+			return connectHealthError(h.Watch(&req, IntercompatibleStream[healthv1.HealthCheckResponse]{connectStream: stream, ctx: ctx}))
+		}},
 	)
-	mux.Handle(serviceName+"Watch", watch)
-	return serviceName, mux
 }
 
-// IntercompatibleStream is a wrapper that should not exist and
-// only exists because I don't want to write my own concurrent Watch()
+func connectHealthError(err error) error {
+	if err == nil {
+		return nil
+	}
+	st := status.Convert(err)
+	return connect.NewError(connect.Code(st.Code()), st.Message()).WithCause(err)
+}
+
+// NewHandler is a convenience for serving health checks over HTTP.
+func (h *HealthServer) NewHandler() (string, http.Handler) {
+	mux := http.NewServeMux()
+	server := connect.NewServer()
+	h.Register(server)
+	connecthttp.Mount(mux, server)
+	return "/" + HealthV1ServiceName + "/", mux
+}
+
+// IntercompatibleStream adapts the gRPC health watch implementation to Connect.
 type IntercompatibleStream[Res any] struct {
-	connectStream *connect.ServerStream[Res]
+	connectStream connect.ServerStream
 	ctx           context.Context
 }
 
-func (i IntercompatibleStream[Res]) Send(m *Res) error {
-	return i.connectStream.Send(m)
-}
+func (i IntercompatibleStream[Res]) Send(m *Res) error { return i.connectStream.Send(m) }
 
 func (i IntercompatibleStream[Res]) SetHeader(md metadata.MD) error {
-	for k, v := range md {
-		// TODO: check the right way to do this
-		i.connectStream.Conn().ResponseHeader().Set(k, strings.Join(v, ","))
+	info, _ := connect.CallInfoForServerContext(i.ctx)
+	for key, values := range md {
+		info.ResponseHeader().SetValues(key, values)
 	}
 	return nil
 }
 
 func (i IntercompatibleStream[Res]) SendHeader(md metadata.MD) error {
-	err := i.SetHeader(md)
-	if err != nil {
+	if err := i.SetHeader(md); err != nil {
 		return err
 	}
-	return i.Send(nil)
+	return i.connectStream.SendHeaders()
 }
 
 func (i IntercompatibleStream[Res]) SetTrailer(md metadata.MD) {
-	for k, v := range md {
-		// TODO: check the right way to do this
-		i.connectStream.Conn().ResponseTrailer().Set(k, strings.Join(v, ","))
+	info, _ := connect.CallInfoForServerContext(i.ctx)
+	for key, values := range md {
+		info.ResponseTrailer().SetValues(key, values)
 	}
 }
 
-func (i IntercompatibleStream[Res]) Context() context.Context {
-	return i.ctx
-}
-
-func (i IntercompatibleStream[Res]) SendMsg(m any) error {
-	return i.connectStream.Conn().Send(m)
-}
-
-func (i IntercompatibleStream[Res]) RecvMsg(m any) error {
-	return i.connectStream.Conn().Receive(m)
-}
+func (i IntercompatibleStream[Res]) Context() context.Context { return i.ctx }
+func (i IntercompatibleStream[Res]) SendMsg(m any) error      { return i.connectStream.Send(m) }
+func (i IntercompatibleStream[Res]) RecvMsg(m any) error      { return i.connectStream.Receive(m) }
