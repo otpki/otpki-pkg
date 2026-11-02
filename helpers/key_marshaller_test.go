@@ -63,6 +63,7 @@ func TestNormalizePrivateKeyToPKCS8PEM_EncryptedPKCS1(t *testing.T) {
 	t.Parallel()
 
 	privateKey := generateRSAKey(t)
+	//nolint:staticcheck // Exercise import compatibility with legacy RFC 1423 encrypted PEM keys.
 	encryptedBlock, err := x509.EncryptPEMBlock(
 		rand.Reader,
 		"RSA PRIVATE KEY",

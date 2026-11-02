@@ -3,7 +3,7 @@ package helpers
 import (
 	"crypto"
 	"crypto/ed25519"
-	"crypto/sha1"
+	"crypto/sha1" //nolint:gosec // SHA-1 identifiers are required for legacy X.509 interoperability.
 	"encoding/hex"
 	"encoding/pem"
 	"strings"
@@ -63,12 +63,12 @@ func UnmarshalPrivateKeyWithPassword(privateKeyBytes []byte, password string) (c
 		return parseOpenSSHPrivateKey(privateKeyBytes, password)
 	}
 
-	if x509.IsEncryptedPEMBlock(block) {
+	if x509.IsEncryptedPEMBlock(block) { //nolint:staticcheck // Import existing RFC 1423 PEM keys; new keys use PKCS#8.
 		if password == "" {
 			return nil, oops.In(ServiceName).New("password required for encrypted private key")
 		}
 
-		decryptedDER, err := x509.DecryptPEMBlock(block, []byte(password))
+		decryptedDER, err := x509.DecryptPEMBlock(block, []byte(password)) //nolint:staticcheck // Required to import existing RFC 1423 encrypted PEM keys.
 		if err != nil {
 			return nil, oops.In(ServiceName).Wrapf(err, "decrypting PEM private key")
 		}
@@ -178,7 +178,7 @@ func GetKeySHA1Hash(pubKey crypto.PublicKey) (string, error) {
 	if err != nil {
 		return "", oops.In(ServiceName).Wrapf(err, "getting raw public key bits for hashing")
 	}
-	hasher := sha1.New()
+	hasher := sha1.New() //nolint:gosec // RFC 5280 method (1) defines the key identifier using SHA-1 over public-key bits.
 	hasher.Write(rawPubKeyBitStr.RightAlign())
 	publicKeyHashSHA1Bytes := hasher.Sum(nil)
 	return hex.EncodeToString(publicKeyHashSHA1Bytes), nil

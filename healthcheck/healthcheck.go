@@ -116,7 +116,7 @@ func (h *HealthServer) NewHandler() (string, http.Handler) {
 // IntercompatibleStream adapts the gRPC health watch implementation to Connect.
 type IntercompatibleStream[Res any] struct {
 	connectStream connect.ServerStream
-	ctx           context.Context
+	ctx           context.Context //nolint:containedctx // A gRPC stream must expose the context of its single RPC via Context().
 }
 
 func (i IntercompatibleStream[Res]) Send(m *Res) error { return i.connectStream.Send(m) }

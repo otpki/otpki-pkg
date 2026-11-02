@@ -27,14 +27,18 @@ func EncryptWithDEK(plaintext, dek []byte) ([]byte, error) {
 	if err != nil {
 		return nil, oops.In(ServiceName).Wrapf(err, "creating GCM")
 	}
-	nonce := make([]byte, gcm.NonceSize())
+	nonceSize := gcm.NonceSize()
+	if nonceSize < 0 || nonceSize > 255 {
+		return nil, oops.In(ServiceName).New("GCM nonce length exceeds envelope encoding")
+	}
+	nonce := make([]byte, nonceSize)
 	if _, err = rand.Read(nonce); err != nil {
 		return nil, oops.In(ServiceName).Wrapf(err, "generating GCM nonce")
 	}
 	ciphertext := gcm.Seal(nil, nonce, plaintext, nil)
 	out := make([]byte, encryptedDataHeaderSize+len(nonce)+len(ciphertext))
 	out[0] = encryptedDataEnvelopeVersion
-	out[1] = byte(len(nonce))
+	out[1] = byte(nonceSize)
 	copy(out[encryptedDataHeaderSize:], nonce)
 	copy(out[encryptedDataHeaderSize+len(nonce):], ciphertext)
 	return out, nil

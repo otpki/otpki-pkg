@@ -87,7 +87,7 @@ func (v *Validator) rrsetSignedFromAncestor(ctx context.Context, rrset []dns.RR,
 		if !isSubDomain(signer, qname) {
 			continue
 		}
-		zsk, _, err := v.buildChainOfTrust(ctx, signer)
+		zsk, err := v.buildChainOfTrust(ctx, signer)
 		if err != nil {
 			continue
 		}
@@ -361,8 +361,8 @@ func canonicalLabels(name string) [][]byte {
 	var labels [][]byte
 	cur := []byte{}
 	for i := 0; i < len(name); {
-		switch c := name[i]; {
-		case c == '\\':
+		switch c := name[i]; c {
+		case '\\':
 			switch {
 			case i+3 < len(name) && isDigit(name[i+1]) && isDigit(name[i+2]) && isDigit(name[i+3]):
 				cur = append(cur, (name[i+1]-'0')*100+(name[i+2]-'0')*10+(name[i+3]-'0'))
@@ -373,7 +373,7 @@ func canonicalLabels(name string) [][]byte {
 			default:
 				i++
 			}
-		case c == '.':
+		case '.':
 			labels = append(labels, cur)
 			cur = []byte{}
 			i++

@@ -92,7 +92,7 @@ func ParsePKCS11URI(s string) (*PKCS11URI, error) {
 
 	if pathPart != "" {
 		seen := make(map[string]struct{})
-		for _, raw := range strings.Split(pathPart, ";") {
+		for raw := range strings.SplitSeq(pathPart, ";") {
 			rawName, value, err := splitAttr(raw)
 			if err != nil {
 				return nil, err
@@ -133,7 +133,7 @@ func ParsePKCS11URI(s string) (*PKCS11URI, error) {
 	// RFC 7512 explicitly allows an empty query component.
 	if hasQuery && queryPart != "" {
 		seenStandard := make(map[string]struct{})
-		for _, raw := range strings.Split(queryPart, "&") {
+		for raw := range strings.SplitSeq(queryPart, "&") {
 			rawName, value, err := splitAttr(raw)
 			if err != nil {
 				return nil, err

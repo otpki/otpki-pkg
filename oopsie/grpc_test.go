@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"connectrpc.com/connect/v2"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -56,9 +57,7 @@ func TestToGRPCStatusRoundTripHandlesPlainErrors(t *testing.T) {
 func TestFromGRPCStatusFallsBackWhenNoPayloadExists(t *testing.T) {
 	original := status.Error(codes.NotFound, "not found")
 	rehydrated := FromGRPCStatus(original)
-	if rehydrated != original {
-		t.Fatalf("expected original grpc error when no payload exists")
-	}
+	require.Same(t, original, rehydrated, "expected original grpc error when no payload exists")
 }
 
 func TestGRPCCodeOfUsesGenericUnknownForErrors(t *testing.T) {

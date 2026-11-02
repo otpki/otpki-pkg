@@ -178,7 +178,7 @@ func etagMatches(ifNoneMatch, etag string) bool {
 		return true
 	}
 
-	for _, candidate := range strings.Split(ifNoneMatch, ",") {
+	for candidate := range strings.SplitSeq(ifNoneMatch, ",") {
 		candidate = strings.TrimSpace(candidate)
 		candidate = strings.TrimPrefix(candidate, "W/")
 		if candidate == etag {
@@ -256,7 +256,6 @@ func loadAllAssets(content fs.FS, config Config) (map[string]*memoryAsset, error
 		assetMap[p] = asset
 		return nil
 	})
-
 	if err != nil {
 		return nil, oops.In(ServiceName).Wrapf(err, "walking and loading embedded content")
 	}

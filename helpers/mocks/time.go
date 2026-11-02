@@ -7,7 +7,7 @@ import (
 )
 
 func MockAdvanceTime(d time.Duration) {
-	helpers.MockOffset = helpers.MockOffset + d
+	helpers.MockOffset += d
 }
 
 func MockResetTime() {

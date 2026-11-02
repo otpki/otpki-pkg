@@ -16,7 +16,7 @@ import (
 )
 
 // TODO: ISSPKI-106
-//type ChangeSubjectName struct {
+// type ChangeSubjectName struct {
 //	Subject    pkix.RDNSequence `asn1:"optional"`
 //	SubjectAlt *pkix.Extension  `asn1:"optional"`
 //}
@@ -64,8 +64,8 @@ func IsIA5String(s string) bool {
 
 func GetKeyUsageDER(usage x509.KeyUsage) ([]byte, error) {
 	var a [2]byte
-	a[0] = ReverseBitsInAByte(byte(usage))
-	a[1] = ReverseBitsInAByte(byte(usage >> 8))
+	a[0] = ReverseBitsInAByte(byte(usage & 0xff))
+	a[1] = ReverseBitsInAByte(byte((usage >> 8) & 0xff))
 
 	l := 1
 	if a[1] != 0 {
@@ -366,16 +366,17 @@ func BuildSubjectAltNameExtension(dnsNames []string, emails []string, ips []net.
 		var err error
 
 		// Handle different ways of providing otherName values
-		if len(other.RawValue) > 0 {
+		switch {
+		case len(other.RawValue) > 0:
 			// Use pre-encoded ASN.1 value directly
 			otherNameValue.Bytes = other.RawValue
-		} else if other.Structured != nil {
+		case other.Structured != nil:
 			// Marshal a structured value
 			otherNameValue.Bytes, err = asn1.Marshal(other.Structured)
 			if err != nil {
 				return nil, oops.In(ServiceName).Wrapf(err, "marshalling otherName structured value")
 			}
-		} else {
+		default:
 			// For other types, use the value directly
 			otherNameValue.Bytes, err = asn1.Marshal(other.Value)
 			if err != nil {

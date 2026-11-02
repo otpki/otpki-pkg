@@ -202,12 +202,11 @@ type Logger interface {
 var GlobalLog = GetDefaultLogger(os.Stdout, nil)
 
 func init() {
-	zerolog.ErrorStackMarshaler = oopszerolog.OopsStackMarshaller
-	//zerolog.ErrorMarshalFunc = oopszerolog.OopsMarshalFunc
+	zerolog.ErrorStackMarshaler = oopszerolog.OopsStackMarshaller //nolint:reassign // Zerolog exposes this hook for process-wide stack formatting; set once at initialization.
+	// zerolog.ErrorMarshalFunc = oopszerolog.OopsMarshalFunc
 }
 
 func GetDefaultLogger(w io.Writer, oLog otellog.Logger) Logger {
-
 	// create a thread-safe, lock-free, non-blocking writer
 	// this prevents logging from blocking the application
 	// buffer size of 1000 messages, flushing every 10ms
@@ -220,12 +219,12 @@ func GetDefaultLogger(w io.Writer, oLog otellog.Logger) Logger {
 		Out:           wr,
 		FieldsExclude: []string{"stack"},
 		FormatExtra: func(m map[string]any, buffer *bytes.Buffer) error {
-			if stack, ok := m["stack"]; ok {
+			if stack, ok := m["stack"].(string); ok {
 				if err, ok := m["error"]; ok && stack == err {
 					return nil
 				}
 				buffer.WriteByte('\n')
-				buffer.WriteString(stack.(string))
+				buffer.WriteString(stack)
 			}
 			return nil
 		},

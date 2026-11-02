@@ -78,7 +78,7 @@ func (w *zerologToHCLogWriter) WriteLevel(level zerolog.Level, p []byte) (int, e
 	var fields map[string]any
 	if err := json.Unmarshal(raw, &fields); err != nil {
 		w.logger.Log(zerologLevelToHCLog(level), string(raw))
-		return len(p), nil
+		return len(p), nil //nolint:nilerr // Non-JSON log lines are forwarded as plain text successfully.
 	}
 
 	msg, _ := fields[zerolog.MessageFieldName].(string)

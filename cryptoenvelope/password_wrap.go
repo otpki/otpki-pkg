@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	KeyEncryptionPasswordEnv = "OTPKI_KEY_ENCRYPTION_PASSWORD"
+	KeyEncryptionPasswordEnv = "OTPKI_KEY_ENCRYPTION_PASSWORD" //nolint:gosec // Environment variable name, not a credential.
 
 	passwordWrapSaltLen   = 16
 	passwordWrapKeyLen    = 32
@@ -60,15 +60,19 @@ func WrapDEKWithPassword(password string, dek []byte) ([]byte, error) {
 	if err != nil {
 		return nil, oops.In(ServiceName).Wrapf(err, "creating KEK GCM")
 	}
-	nonce := make([]byte, gcm.NonceSize())
+	nonceSize := gcm.NonceSize()
+	if nonceSize < 0 || nonceSize > 255 {
+		return nil, oops.In(ServiceName).New("GCM nonce length exceeds envelope encoding")
+	}
+	nonce := make([]byte, nonceSize)
 	if _, err = rand.Read(nonce); err != nil {
 		return nil, oops.In(ServiceName).Wrapf(err, "generating DEK wrap nonce")
 	}
 	wrappedDEK := gcm.Seal(nil, nonce, dek, nil)
 
 	out := make([]byte, passwordWrapHeaderLen+len(salt)+len(nonce)+len(wrappedDEK))
-	out[0] = byte(len(salt))
-	out[1] = byte(len(nonce))
+	out[0] = passwordWrapSaltLen
+	out[1] = byte(nonceSize)
 	out[2] = byte(argon2IDParallelism)
 	binary.BigEndian.PutUint32(out[3:7], uint32(argon2IDIterations))
 	binary.BigEndian.PutUint32(out[7:11], uint32(argon2IDMemoryKiB))

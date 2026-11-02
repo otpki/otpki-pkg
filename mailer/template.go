@@ -150,7 +150,7 @@ func newTemplateData(product string, body Body) templateData {
 
 	return templateData{
 		Product:    product,
-		LogoSrc:    htmltemplate.URL("cid:" + logoContentID),
+		LogoSrc:    htmltemplate.URL("cid:" + logoContentID), //nolint:gosec // Both the CID scheme and logoContentID are internal constants.
 		Year:       time.Now().Year(),
 		Preheader:  preheader,
 		Heading:    heading,

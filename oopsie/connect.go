@@ -78,14 +78,21 @@ func oopsConnectCode(code any) (connect.Code, bool) {
 	case connect.Code:
 		return v, true
 	case int:
-		return connect.Code(v), true
+		return numericConnectCode(int64(v))
 	case int32:
-		return connect.Code(v), true
+		return numericConnectCode(int64(v))
 	case int64:
-		return connect.Code(v), true
+		return numericConnectCode(v)
 	case string:
 		return ParseConnectCode(v)
 	default:
 		return 0, false
 	}
+}
+
+func numericConnectCode(v int64) (connect.Code, bool) {
+	if v < 0 || v > 0xffffffff {
+		return 0, false
+	}
+	return connect.Code(v), true
 }

@@ -1,60 +1,69 @@
 version: "2"
-run:
-  allow-parallel-runners: true
+
 linters:
-  default: none
+  default: standard
+
   enable:
-    # default
-    - errcheck
-    - govet
-    - ineffassign
-    - staticcheck
-    - unused
-    # additional
-    - copyloopvar
-    - dupl
-    - fatcontext
-    - goconst
-    - gocritic
-    - gocyclo
-    - gosec
-    - ineffassign
-    - intrange
-    - lll
-    - misspell
+    # Modern Go / simplification.
     - modernize
-    - nakedret
-    - nilnesserr
-    - perfsprint
-    - prealloc
-    - protogetter
-    - reassign
-    - revive
-    - testifylint
-    - thelper
-    - tparallel
+    - copyloopvar
     - unconvert
     - unparam
-    - unused
-  settings:
-    lll:
-      line-length: 130
-    revive:
-      rules:
-        - name: comment-spacings
-        - name: import-shadowing
-    ireturn:
-      allow:
-        - anon
-        - error
-        - stdlib
-        - empty
-        - generic
+    - usestdlibvars
+
+    # Correctness.
+    - contextcheck
+    - durationcheck
+    - errorlint
+    - errname
+    - nilerr
+    - nilnesserr
+    - wastedassign
+    - makezero
+    - gocritic
+    - recvcheck
+    - forcetypeassert
+
+    # Context / lifecycle.
+    - containedctx
+    - fatcontext
+
+    # Observability.
+    - spancheck
+    - sloglint
+
+    # Security.
+    - gosec
+    - bidichk
+    - asciicheck
+
+    # Test correctness.
+    - usetesting
+    - thelper
+    - reassign
+
+    # Repository hygiene.
+    - nolintlint
+    - misspell
+    - dupword
+    - whitespace
+    - revive
+
+  exclusions:
+    generated: lax
+    warn-unused: true
+
+    presets:
+      - comments
+
+    rules:
+      # Test fixtures and assertions are not production security boundaries.
+      # Keep the same test-code exception as otpki and pkcs11.
+      - path: '(_test\.go|^test/)'
+        linters:
+          - gosec
+
 formatters:
   enable:
-    - gofmt
+    - gofumpt
     - goimports
-    - golines
-  settings:
-    golines:
-      max-len: 130

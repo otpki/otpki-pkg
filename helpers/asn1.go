@@ -32,10 +32,12 @@ func derWrapSequence(content []byte) []byte {
 		lenBytes = []byte{byte(n)}
 	} else {
 		tmp := make([]byte, 0, 8)
+		var lengthOctets byte
 		for x := n; x > 0; x >>= 8 {
+			lengthOctets++
 			tmp = append([]byte{byte(x & 0xff)}, tmp...)
 		}
-		lenBytes = append([]byte{0x80 | byte(len(tmp))}, tmp...)
+		lenBytes = append([]byte{0x80 | lengthOctets}, tmp...)
 	}
 
 	out := make([]byte, 0, 1+len(lenBytes)+n)

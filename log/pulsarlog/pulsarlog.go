@@ -57,8 +57,8 @@ func (p *PulsarLoggerAdapter) WithError(err error) log.Entry {
 }
 
 // Debug logs a debug message
-func (p *PulsarLoggerAdapter) Debug(args ...any) {
-	//p.logger.Trace().Msg(fmt.Sprint(args...))
+func (p *PulsarLoggerAdapter) Debug(_ ...any) {
+	// p.logger.Trace().Msg(fmt.Sprint(args...))
 }
 
 // Info logs an info message
@@ -77,8 +77,8 @@ func (p *PulsarLoggerAdapter) Error(args ...any) {
 }
 
 // Debugf logs a formatted debug message
-func (p *PulsarLoggerAdapter) Debugf(format string, args ...any) {
-	//p.logger.Trace().Msgf(format, args...)
+func (p *PulsarLoggerAdapter) Debugf(_ string, _ ...any) {
+	// p.logger.Trace().Msgf(format, args...)
 }
 
 // Infof logs a formatted info message
@@ -97,7 +97,7 @@ func (p *PulsarLoggerAdapter) Errorf(format string, args ...any) {
 }
 
 // PulsarLogEntryAdapter adapts our Logger to the Pulsar log.Entry interface
-type PulsarLogEntryAdapter struct {
+type PulsarLogEntryAdapter struct { //nolint:revive // Preserve the exported adapter name for existing callers.
 	logger pkglog.Logger
 }
 
@@ -120,8 +120,8 @@ func (e *PulsarLogEntryAdapter) WithField(name string, value any) log.Entry {
 }
 
 // Debug logs a debug message
-func (e *PulsarLogEntryAdapter) Debug(args ...any) {
-	//e.logger.Trace().Msg(fmt.Sprint(args...))
+func (e *PulsarLogEntryAdapter) Debug(_ ...any) {
+	// e.logger.Trace().Msg(fmt.Sprint(args...))
 }
 
 // Info logs an info message
@@ -140,8 +140,8 @@ func (e *PulsarLogEntryAdapter) Error(args ...any) {
 }
 
 // Debugf logs a formatted debug message
-func (e *PulsarLogEntryAdapter) Debugf(format string, args ...any) {
-	//e.logger.Trace().Msgf(format, args...)
+func (e *PulsarLogEntryAdapter) Debugf(_ string, _ ...any) {
+	// e.logger.Trace().Msgf(format, args...)
 }
 
 // Infof logs a formatted info message

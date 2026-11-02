@@ -23,7 +23,11 @@ func (pq PriorityQueue[T]) Swap(i, j int) {
 }
 
 func (pq *PriorityQueue[T]) Push(x any) {
-	pq.PushType(x.(PQItem[T]))
+	item, ok := x.(PQItem[T])
+	if !ok {
+		panic("priorityqueue: item does not implement PQItem")
+	}
+	pq.PushType(item)
 }
 
 func (pq *PriorityQueue[T]) PushType(x PQItem[T]) {

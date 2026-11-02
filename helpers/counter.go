@@ -15,8 +15,10 @@ type Incrementer struct {
 	counter int64
 }
 
-var globalGenerator *Incrementer
-var once sync.Once
+var (
+	globalGenerator *Incrementer
+	once            sync.Once
+)
 
 // Returns global instance
 func GetCurrent() *Incrementer {

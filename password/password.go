@@ -217,13 +217,18 @@ func VerifyPassword(password, encodedHash string) (bool, error) {
 		return false, err
 	}
 
+	keyLength := len(params.hash)
+	if keyLength < minVerifyKeyLength || keyLength > maxVerifyKeyLength {
+		return false, oops.New("invalid Argon2 hash length")
+	}
+
 	hash := deriveKey(
 		[]byte(password),
 		params.salt,
 		params.time,
 		params.memory,
 		params.threads,
-		uint32(len(params.hash)),
+		uint32(keyLength),
 	)
 
 	return subtle.ConstantTimeCompare(hash, params.hash) == 1, nil

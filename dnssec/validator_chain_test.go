@@ -11,7 +11,6 @@ import (
 
 	"codeberg.org/miekg/dns"
 	"codeberg.org/miekg/dns/dnsutil"
-	"codeberg.org/miekg/dns/rdata"
 	"github.com/stretchr/testify/require"
 )
 
@@ -328,7 +327,7 @@ func TestValidateAcceptsProvenInsecureDelegation(t *testing.T) {
 		Hdr: dns.Header{
 			Name: "unsigned.", Class: dns.ClassINET, TTL: 300,
 		},
-		NSEC: rdata.NSEC{NextDomain: "\x00.unsigned.", TypeBitMap: []uint16{dns.TypeNS, dns.TypeRRSIG, dns.TypeNSEC}},
+		NextDomain: "\x00.unsigned.", TypeBitMap: []uint16{dns.TypeNS, dns.TypeRRSIG, dns.TypeNSEC},
 	}
 	nsecSig := signRRset(t, rootZSK, rootZSKpriv, now, []dns.RR{nsec})
 
@@ -378,8 +377,8 @@ func TestValidateRejectsForgedNSECDenial(t *testing.T) {
 	// an NSEC denying DS for "signed.".
 	fakeRootZSK, fakeRootZSKpriv := genKey(t, ".", 256)
 	nsec := &dns.NSEC{
-		Hdr:  dns.Header{Name: "signed.", Class: dns.ClassINET, TTL: 300},
-		NSEC: rdata.NSEC{NextDomain: "\x00.signed.", TypeBitMap: []uint16{dns.TypeNS, dns.TypeRRSIG, dns.TypeNSEC}},
+		Hdr:        dns.Header{Name: "signed.", Class: dns.ClassINET, TTL: 300},
+		NextDomain: "\x00.signed.", TypeBitMap: []uint16{dns.TypeNS, dns.TypeRRSIG, dns.TypeNSEC},
 	}
 	forgedNSECSig := signRRset(t, fakeRootZSK, fakeRootZSKpriv, now, []dns.RR{nsec})
 
@@ -603,7 +602,7 @@ func genKey(t *testing.T, owner string, flags uint16) (*dns.DNSKEY, crypto.Signe
 		Hdr: dns.Header{
 			Name: owner, Class: dns.ClassINET, TTL: 3600,
 		},
-		DNSKEY: rdata.DNSKEY{Flags: flags, Protocol: 3, Algorithm: dns.ECDSAP256SHA256},
+		Flags: flags, Protocol: 3, Algorithm: dns.ECDSAP256SHA256,
 	}
 	priv, err := k.Generate(256)
 	require.NoError(t, err)
@@ -619,10 +618,8 @@ func signRRset(t *testing.T, key *dns.DNSKEY, priv crypto.Signer, now time.Time,
 		Hdr: dns.Header{
 			Name: rrset[0].Header().Name, Class: dns.ClassINET, TTL: rrset[0].Header().TTL,
 		},
-		RRSIG: rdata.RRSIG{
-			Algorithm: key.Algorithm, SignerName: key.Hdr.Name, KeyTag: key.KeyTag(),
-			Inception: uint32(now.Add(-time.Hour).Unix()), Expiration: uint32(now.Add(time.Hour).Unix()),
-		},
+		Algorithm: key.Algorithm, SignerName: key.Hdr.Name, KeyTag: key.KeyTag(),
+		Inception: uint32(now.Add(-time.Hour).Unix()), Expiration: uint32(now.Add(time.Hour).Unix()),
 	}
 	require.NoError(t, sig.Sign(priv, rrset, new(dns.SignOption)))
 	return sig

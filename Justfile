@@ -26,16 +26,23 @@ aqua:
 tools *tags:
     aqua install {{ if tags == "" { "" } else { "-t " + replace(tags, " ", " -t ") } }}
 
-check: aqua tools test-ci # todo: fmt/lint
+check: aqua tools
+    just format-check
+    just lint
+    just test-ci
     go mod tidy
 
-format target="":
+format target="./...":
     {{tool_path}}/golangci-lint fmt {{target}}
 
-lint target="":
+# Check formatting without rewriting files; propagate formatter errors too.
+format-check target="./...":
+    diff="$(golangci-lint fmt -d {{target}})" && { printf '%s' "$diff"; test -z "$diff"; }
+
+lint target="./...":
     {{tool_path}}/golangci-lint run {{target}}
 
-lint-fix target="":
+lint-fix target="./...":
     {{tool_path}}/golangci-lint run --fix {{target}}
 
 test-ci:

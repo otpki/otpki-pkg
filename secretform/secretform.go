@@ -155,7 +155,7 @@ func buildFormBlocks(secret, kcv string, pwWidth int) formBlocks {
 	}
 
 	var pw strings.Builder
-	pw.WriteString(fmt.Sprintf("Key Check Value: %s\n\n", kcv))
+	fmt.Fprintf(&pw, "Key Check Value: %s\n\n", kcv)
 
 	pwRows := chunkByWidth(secret, pwWidth)
 
@@ -165,7 +165,7 @@ func buildFormBlocks(secret, kcv string, pwWidth int) formBlocks {
 		unders := make([]string, 0, len(row))
 		inds := make([]string, 0, len(row))
 
-		for _, ch := range []rune(row) {
+		for _, ch := range row {
 			chars = append(chars, fmt.Sprintf(" %c ", ch))
 			unders = append(unders, "___")
 			inds = append(inds, fmt.Sprintf("%03d", charIndex))
@@ -181,7 +181,7 @@ func buildFormBlocks(secret, kcv string, pwWidth int) formBlocks {
 
 	charIndex = 0
 	for _, row := range lutRows {
-		for _, ch := range []rune(row) {
+		for _, ch := range row {
 			entry := fmt.Sprintf("%03d: %c %s", charIndex, ch, lookupOrUnknown(ch))
 			if len(entry) < LookupWidth {
 				entry += strings.Repeat(" ", LookupWidth-len(entry))
