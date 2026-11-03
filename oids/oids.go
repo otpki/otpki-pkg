@@ -5,6 +5,15 @@ import (
 )
 
 var (
+	// CMP information types and CRMF controls (RFC 9480, Appendix A.1.)
+	OidCMPImplicitConfirm = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 4, 13}
+	OidCMPConfirmWaitTime = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 4, 14}
+	OidCMPCACerts         = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 4, 17}
+	OidCMPCertReqTemplate = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 4, 19}
+	OidCMPCertProfile     = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 4, 21}
+	OidRegCtrlAlgID       = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 5, 1, 11}
+	OidRegCtrlRSAKeyLen   = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 7, 5, 1, 12}
+
 	// MS specified OIDs
 	// https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-wcce/f4eb50d5-62f6-470b-8846-9489af9dea62
 	OidOSVersion               = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 311, 13, 2, 3}
@@ -239,6 +248,7 @@ var (
 	// CMS signed attributes (RFC 5652 / PKCS #9)
 	OidAttributeContentType   = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 3}
 	OidAttributeMessageDigest = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 4}
+	OidJSONVoucher            = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 16, 1, 40}
 
 	// PKCS #9 extensionRequest attribute carried inside a CertificationRequest
 	OidExtensionRequest = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 14}
