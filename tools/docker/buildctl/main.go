@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -21,7 +22,7 @@ const (
 	defaultDockerfile = "Dockerfile"
 	defaultPlatforms  = "linux/amd64,linux/arm64"
 	defaultPushEnv    = "PUSH"
-	defaultSecret     = "id=github_token,env=GITHUB_TOKEN"
+	defaultSecret     = "id=github_token,env=GITHUB_TOKEN" //nolint:gosec // BuildKit secret descriptor; the credential is read from the environment.
 )
 
 var (
@@ -97,7 +98,7 @@ func newDockerCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "docker",
 		Short: "Build one or more Docker images",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			cfg, err := loadConfig()
 			if err != nil {
 				return err
@@ -394,8 +395,8 @@ func addDockerfileVars(vars map[string]string, projectRoot string, dockerfile st
 
 func dockerfileSuffix(base string) string {
 	const prefix = "Dockerfile."
-	if strings.HasPrefix(base, prefix) {
-		return strings.TrimPrefix(base, prefix)
+	if after, ok := strings.CutPrefix(base, prefix); ok {
+		return after
 	}
 
 	return ""
@@ -619,7 +620,7 @@ func runCommand(cfg Config, name string, args ...string) error {
 		return nil
 	}
 
-	cmd := exec.Command(name, args...)
+	cmd := exec.Command(name, args...) //nolint:gosec // This developer CLI runs explicit build commands with separate arguments, without a shell.
 	cmd.Dir = cfg.ProjectRoot
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -633,7 +634,7 @@ func runCommand(cfg Config, name string, args ...string) error {
 func renderSimple(input string, vars map[string]string) (string, error) {
 	out := input
 
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		start := strings.Index(out, "{")
 		if start < 0 {
 			return out, nil
@@ -706,7 +707,7 @@ func ghToken() string {
 }
 
 func commandOutput(dir, name string, args ...string) string {
-	cmd := exec.Command(name, args...)
+	cmd := exec.Command(name, args...) //nolint:gosec // This developer CLI runs explicit build commands with separate arguments, without a shell.
 	if dir != "" {
 		cmd.Dir = dir
 	}
@@ -737,9 +738,7 @@ func fileExists(path string) bool {
 
 func cloneVars(in map[string]string) map[string]string {
 	out := make(map[string]string, len(in))
-	for key, value := range in {
-		out[key] = value
-	}
+	maps.Copy(out, in)
 
 	return out
 }

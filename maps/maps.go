@@ -17,7 +17,7 @@ func (m *Map[K, V]) Load(key K) (value V, ok bool) {
 		var zero V
 		return zero, false
 	}
-	return v.(V), true
+	return mapValue[V](v), true
 }
 
 func (m *Map[K, V]) Store(key K, value V) {
@@ -30,7 +30,7 @@ func (m *Map[K, V]) Delete(key K) {
 
 func (m *Map[K, V]) LoadOrStore(key K, value V) (actual V, loaded bool) {
 	v, loaded := m.m.LoadOrStore(key, value)
-	return v.(V), loaded
+	return mapValue[V](v), loaded
 }
 
 func (m *Map[K, V]) LoadAndDelete(key K) (value V, loaded bool) {
@@ -39,7 +39,7 @@ func (m *Map[K, V]) LoadAndDelete(key K) (value V, loaded bool) {
 		var zero V
 		return zero, false
 	}
-	return v.(V), true
+	return mapValue[V](v), true
 }
 
 func (m *Map[K, V]) Swap(key K, value V) (previous V, loaded bool) {
@@ -48,11 +48,11 @@ func (m *Map[K, V]) Swap(key K, value V) (previous V, loaded bool) {
 		var zero V
 		return zero, false
 	}
-	return v.(V), true
+	return mapValue[V](v), true
 }
 
-func (m *Map[K, V]) CompareAndSwap(key K, old, new V) bool {
-	return m.m.CompareAndSwap(key, old, new)
+func (m *Map[K, V]) CompareAndSwap(key K, old, replacement V) bool {
+	return m.m.CompareAndSwap(key, old, replacement)
 }
 
 func (m *Map[K, V]) CompareAndDelete(key K, old V) bool {
@@ -61,10 +61,22 @@ func (m *Map[K, V]) CompareAndDelete(key K, old V) bool {
 
 func (m *Map[K, V]) Range(f func(key K, value V) bool) {
 	m.m.Range(func(k, v any) bool {
-		return f(k.(K), v.(V))
+		return f(mapValue[K](k), mapValue[V](v))
 	})
 }
 
 func (m *Map[K, V]) Clear() {
 	m.m.Clear()
+}
+
+func mapValue[T any](v any) T {
+	if v == nil {
+		var zero T
+		return zero
+	}
+	value, ok := v.(T)
+	if !ok {
+		panic("maps: stored value violates Map type parameters")
+	}
+	return value
 }

@@ -12,7 +12,6 @@ import (
 
 	"codeberg.org/miekg/dns"
 	"codeberg.org/miekg/dns/dnsutil"
-	"codeberg.org/miekg/dns/rdata"
 	"github.com/stretchr/testify/require"
 )
 
@@ -53,7 +52,8 @@ func TestFilterKeysByDS(t *testing.T) {
 	// Use the real IANA root KSK for this test
 	rootKSKRR, err := dns.New(". 172800 IN DNSKEY 257 3 8 AwEAAaz/tAm8yTn4Mfeh5eyI96WSVexTBAvkMgJzkKTOiW1vkIbzxeF3 +/4RgWOq7HrxRixHlFlExOLAJr5emLvN7SWXgnLh4+B5xQlNVz8Og8kv ArMtNROxVQuCaSnIDdD5LKyWbRd2n9WGe2R8PzgCmr3EgVLrjyBxWezF 0jLHwVN8efS3rCj/EWgvIWgb9tarpVUDK/b58Da+sqqls3eNbuv7pr+e oZG+SrDK6nWeL3c6H5Apxz7LjVc1uTIdsIXxuOLYA4/ilBmSVIzuDWfd RUfhHdY6+cn8HFRm+2hM8AnXGXws9555KrUB5qihylGa8subX2Nn6UwN R1AkUTV74bU=")
 	require.NoError(t, err)
-	rootKSK := rootKSKRR.(*dns.DNSKEY)
+	rootKSK, ok := rootKSKRR.(*dns.DNSKEY)
+	require.True(t, ok)
 
 	// Compute expected DS
 	ds := rootKSK.ToDS(dns.SHA256)
@@ -123,7 +123,11 @@ func TestKeystoreCaching(t *testing.T) {
 	zskRR, _ := dns.New("example.com. 3600 IN DNSKEY 256 3 13 dGVzdA==")
 	kskRR, _ := dns.New("example.com. 3600 IN DNSKEY 257 3 13 dGVzdA==")
 
-	ks.addDNSKEY("example.com.", []*dns.DNSKEY{zskRR.(*dns.DNSKEY), kskRR.(*dns.DNSKEY)})
+	zskKey, ok := zskRR.(*dns.DNSKEY)
+	require.True(t, ok)
+	kskKey, ok := kskRR.(*dns.DNSKEY)
+	require.True(t, ok)
+	ks.addDNSKEY("example.com.", []*dns.DNSKEY{zskKey, kskKey})
 
 	zsk, ksk := ks.getDNSKEY("example.com.")
 	require.Len(t, zsk, 1)
@@ -141,7 +145,9 @@ func TestKeystoreTTLExpiry(t *testing.T) {
 	ks := newKeystore(func() time.Time { return currentTime })
 
 	zskRR, _ := dns.New("example.com. 60 IN DNSKEY 256 3 13 dGVzdA==")
-	ks.addDNSKEY("example.com.", []*dns.DNSKEY{zskRR.(*dns.DNSKEY)})
+	zskKey, ok := zskRR.(*dns.DNSKEY)
+	require.True(t, ok)
+	ks.addDNSKEY("example.com.", []*dns.DNSKEY{zskKey})
 
 	// Should be in cache
 	zsk, _ := ks.getDNSKEY("example.com.")
@@ -164,7 +170,7 @@ func TestKeystoreDSExpiry(t *testing.T) {
 		Hdr: dns.Header{
 			Name: "example.com.", Class: dns.ClassINET, TTL: 60,
 		},
-		DS: rdata.DS{KeyTag: 12345, Algorithm: dns.RSASHA256, DigestType: dns.SHA256, Digest: "ABCD"},
+		KeyTag: 12345, Algorithm: dns.RSASHA256, DigestType: dns.SHA256, Digest: "ABCD",
 	}
 	ks.addDS("example.com.", ds)
 
@@ -190,8 +196,8 @@ func TestKeystoreDSMerge(t *testing.T) {
 
 	newDS := func(tag uint16, ttl uint32) *dns.DS {
 		return &dns.DS{
-			Hdr: dns.Header{Name: ".", Class: dns.ClassINET, TTL: ttl},
-			DS:  rdata.DS{KeyTag: tag, Algorithm: dns.RSASHA256, DigestType: dns.SHA256, Digest: "ABCD"},
+			Hdr:    dns.Header{Name: ".", Class: dns.ClassINET, TTL: ttl},
+			KeyTag: tag, Algorithm: dns.RSASHA256, DigestType: dns.SHA256, Digest: "ABCD",
 		}
 	}
 
@@ -221,7 +227,7 @@ func TestGetItemConcurrent(t *testing.T) {
 	items := make([]*keystoreEntry, n)
 	start := make(chan struct{})
 	var wg sync.WaitGroup
-	for i := 0; i < n; i++ {
+	for i := range n {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
@@ -254,7 +260,7 @@ func TestBuildChainOfTrustCaching(t *testing.T) {
 	v.SetAnchor(".", 20326, dns.RSASHA256, dns.SHA256, "E06D44B80B8F1D39A95C0B0D7C65D08458E880409BBC683457104237C7F8EC8D")
 
 	// First call will trigger a lookup (and fail due to no DNSKEY)
-	_, _, err := v.buildChainOfTrust(t.Context(), ".")
+	_, err := v.buildChainOfTrust(t.Context(), ".")
 	require.Error(t, err) // Expected to fail since mock returns no keys
 
 	count1 := lookupCount.Load()
@@ -263,7 +269,8 @@ func TestBuildChainOfTrustCaching(t *testing.T) {
 
 func TestFindKeysByTag(t *testing.T) {
 	key1RR, _ := dns.New(". 172800 IN DNSKEY 257 3 8 AwEAAaz/tAm8yTn4Mfeh5eyI96WSVexTBAvkMgJzkKTOiW1vkIbzxeF3 +/4RgWOq7HrxRixHlFlExOLAJr5emLvN7SWXgnLh4+B5xQlNVz8Og8kv ArMtNROxVQuCaSnIDdD5LKyWbRd2n9WGe2R8PzgCmr3EgVLrjyBxWezF 0jLHwVN8efS3rCj/EWgvIWgb9tarpVUDK/b58Da+sqqls3eNbuv7pr+e oZG+SrDK6nWeL3c6H5Apxz7LjVc1uTIdsIXxuOLYA4/ilBmSVIzuDWfd RUfhHdY6+cn8HFRm+2hM8AnXGXws9555KrUB5qihylGa8subX2Nn6UwN R1AkUTV74bU=")
-	key1 := key1RR.(*dns.DNSKEY)
+	key1, ok := key1RR.(*dns.DNSKEY)
+	require.True(t, ok)
 
 	tag := key1.KeyTag()
 	alg := key1.Algorithm

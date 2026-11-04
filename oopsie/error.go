@@ -134,8 +134,7 @@ func AsError(err error) (*Error, bool) {
 		return nil, false
 	}
 
-	var oopsieErr *Error
-	if errors.As(err, &oopsieErr) {
+	if oopsieErr, ok := errors.AsType[*Error](err); ok {
 		return oopsieErr, true
 	}
 

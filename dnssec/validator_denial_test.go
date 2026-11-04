@@ -11,7 +11,6 @@ import (
 
 	"codeberg.org/miekg/dns"
 	"codeberg.org/miekg/dns/dnsutil"
-	"codeberg.org/miekg/dns/rdata"
 	"github.com/stretchr/testify/require"
 )
 
@@ -263,8 +262,8 @@ func TestValidateRejectsUnsignedNODATA(t *testing.T) {
 func signNSEC(t *testing.T, key *dns.DNSKEY, priv crypto.Signer, now time.Time, owner, next string, types []uint16) (*dns.NSEC, *dns.RRSIG) {
 	t.Helper()
 	nsec := &dns.NSEC{
-		Hdr:  dns.Header{Name: dnsutil.Canonical(owner), Class: dns.ClassINET, TTL: 300},
-		NSEC: rdata.NSEC{NextDomain: dnsutil.Canonical(next), TypeBitMap: types},
+		Hdr:        dns.Header{Name: dnsutil.Canonical(owner), Class: dns.ClassINET, TTL: 300},
+		NextDomain: dnsutil.Canonical(next), TypeBitMap: types,
 	}
 	sig := signRRset(t, key, priv, now, []dns.RR{nsec})
 	return nsec, sig
@@ -294,12 +293,10 @@ func signNSEC3Chain(t *testing.T, key *dns.DNSKEY, priv crypto.Signer, now time.
 	for i, e := range entries {
 		next := entries[(i+1)%len(entries)].hash
 		n3 := &dns.NSEC3{
-			Hdr: dns.Header{Name: e.hash + "." + zone, Class: dns.ClassINET, TTL: 300},
-			NSEC3: rdata.NSEC3{
-				Hash: dns.SHA1, Flags: 0, Iterations: 0,
-				SaltLength: 0, Salt: "", HashLength: 20,
-				NextDomain: next, TypeBitMap: bitmaps[e.name],
-			},
+			Hdr:  dns.Header{Name: e.hash + "." + zone, Class: dns.ClassINET, TTL: 300},
+			Hash: dns.SHA1, Flags: 0, Iterations: 0,
+			SaltLength: 0, Salt: "", HashLength: 20,
+			NextDomain: next, TypeBitMap: bitmaps[e.name],
 		}
 		sig := signRRset(t, key, priv, now, []dns.RR{n3})
 		out = append(out, n3, sig)

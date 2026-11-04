@@ -17,7 +17,6 @@ import (
 	"github.com/otpki/iogo/crypto/x509"
 
 	"codeberg.org/miekg/dns"
-	"codeberg.org/miekg/dns/rdata"
 	"github.com/smallstep/pkcs7"
 )
 
@@ -263,13 +262,11 @@ func (keyDigest ianaTrustAnchorKeyDigest) trustAnchor(now time.Time) (TrustAncho
 
 func (keyDigest ianaTrustAnchorKeyDigest) verifyPublicKeyDigest(expectedDigest string) error {
 	key := &dns.DNSKEY{
-		Hdr: dns.Header{Name: ".", Class: dns.ClassINET},
-		DNSKEY: rdata.DNSKEY{
-			Flags:     *keyDigest.Flags,
-			Protocol:  3,
-			Algorithm: keyDigest.Algorithm,
-			PublicKey: strings.Join(strings.Fields(keyDigest.PublicKey), ""),
-		},
+		Hdr:       dns.Header{Name: ".", Class: dns.ClassINET},
+		Flags:     *keyDigest.Flags,
+		Protocol:  3,
+		Algorithm: keyDigest.Algorithm,
+		PublicKey: strings.Join(strings.Fields(keyDigest.PublicKey), ""),
 	}
 	if key.KeyTag() != keyDigest.KeyTag {
 		return errors.New("PublicKey does not match KeyTag")

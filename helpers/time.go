@@ -6,8 +6,10 @@ import (
 	"time"
 )
 
-var Tn = time.Now
-var MockOffset = time.Duration(0)
+var (
+	Tn         = time.Now
+	MockOffset = time.Duration(0)
+)
 
 func Now() time.Time {
 	return Tn().UTC().Add(MockOffset)

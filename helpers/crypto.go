@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"crypto"
 	"crypto/rand"
-	"crypto/sha1"
+	"crypto/sha1" //nolint:gosec // SHA-1 identifiers are required for legacy X.509 interoperability.
 	"crypto/sha256"
 	"crypto/x509/pkix"
 	"encoding/asn1"
@@ -38,7 +38,7 @@ func ToSigner(key any) (crypto.Signer, error) {
 	return pk, nil
 }
 
-//func ToPublic(parsedPk any) (crypto.PublicKey, error) {
+// func ToPublic(parsedPk any) (crypto.PublicKey, error) {
 //	pk, ok := parsedPk.(crypto.PrivateKey)
 //	if !ok {
 //		return nil, oops.Errorf("failed to get private key from pem")
@@ -54,14 +54,14 @@ func ToDecrypter(parsedPk any) (crypto.Decrypter, error) {
 	return pk, nil
 }
 
-//func GenerateSerialNumber(bits uint) (*big.Int, error) {
+// func GenerateSerialNumber(bits uint) (*big.Int, error) {
 //	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), bits)
 //	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
 //	return serialNumber, err
 //}
 
 func GenerateCertThumbprintSHA1(cert *x509.Certificate) string {
-	digest := sha1.Sum(cert.Raw)
+	digest := sha1.Sum(cert.Raw) //nolint:gosec // This API computes a legacy certificate fingerprint, not a signature.
 	return hex.EncodeToString(digest[:])
 }
 
@@ -108,7 +108,7 @@ func GetRawPublicKeyBitStr(publicKey crypto.PublicKey) (asn1.BitString, error) {
 	return spki.SubjectPublicKey, nil
 }
 
-//func PrivateKeyToPEM(privateKey crypto.PrivateKey) ([]byte, error) {
+// func PrivateKeyToPEM(privateKey crypto.PrivateKey) ([]byte, error) {
 //	var pemBlock *pem.Block
 //	switch k := privateKey.(type) {
 //	case *rsa.PrivateKey:
@@ -126,7 +126,7 @@ func GetRawPublicKeyBitStr(publicKey crypto.PublicKey) (asn1.BitString, error) {
 //	return pem.EncodeToMemory(pemBlock), nil
 //}
 //
-//func PEMtoDER(pemBytes []byte) ([]byte, error) {
+// func PEMtoDER(pemBytes []byte) ([]byte, error) {
 //	// Decode pem block
 //	block, _ := pem.Decode(pemBytes)
 //	if block == nil {
@@ -139,7 +139,7 @@ func GetRawPublicKeyBitStr(publicKey crypto.PublicKey) (asn1.BitString, error) {
 
 func LoadCertificateFromPEMFile(certFile string) (*x509.Certificate, error) {
 	// Read pem
-	pemData, err := os.ReadFile(certFile)
+	pemData, err := os.ReadFile(certFile) //nolint:gosec // The caller explicitly selects the certificate file to load.
 	if err != nil {
 		return nil, oops.In(ServiceName).Wrapf(err, "reading certificate file %s", certFile)
 	}
@@ -197,7 +197,7 @@ func LoadCertificateChainFromP7b(p7bData []byte) ([]*x509.Certificate, error) {
 			return nil, oops.In(ServiceName).Wrapf(err, "parsing P7B chain")
 		}
 		// Convert stdlib x509 to
-		convertedCerts := make([]*x509.Certificate, len(p7.Certificates))
+		convertedCerts := make([]*x509.Certificate, 0, len(p7.Certificates))
 		for _, c := range p7.Certificates {
 			cert, err := x509.CertificateFromStdX509(c)
 			if err != nil {
@@ -253,11 +253,11 @@ func ParseCertificateChainFromHeaderValue(headerValue string) ([]*x509.Certifica
 			return nil, oops.In(ServiceName).Wrapf(err, "decoding certificate header")
 		}
 		headerValue = decoded
-	} else if !strings.HasPrefix("-----BEGIN", headerValue) { // Traefik case: https://doc.traefik.io/traefik/reference/routing-configuration/http/middlewares/passtlsclientcert/#data-format
+	} else if !strings.HasPrefix(headerValue, "-----BEGIN") { // Traefik case: https://doc.traefik.io/traefik/reference/routing-configuration/http/middlewares/passtlsclientcert/#data-format
 		// Delimiters removed: no PEM header/trailer characters and line breaks
 		// X-Client-Certificate:[MIICLjCCARagA....0pkNplWJA==,MIIC+DCCAeCgAwIBA....5YDOXJqv2p2aXA=]
 		// Below reconstructs a pem for each comma separated base64 der segment
-		chain := ""
+		var chain strings.Builder
 		for segment := range strings.SplitSeq(headerValue, ",") {
 			der, err := base64.StdEncoding.DecodeString(segment)
 			if err != nil {
@@ -268,9 +268,9 @@ func ParseCertificateChainFromHeaderValue(headerValue string) ([]*x509.Certifica
 				return nil, oops.Errorf("failed to parse der bytes:%w", err)
 			}
 			pemCert := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
-			chain = chain + string(pemCert)
+			chain.Write(pemCert)
 		}
-		headerValue = chain
+		headerValue = chain.String()
 	}
 	// Else: pem chain or single cert
 	return LoadCertificateChainFromPemNormalized([]byte(headerValue))

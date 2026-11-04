@@ -23,23 +23,40 @@ aqua:
     mkdir -p {{tool_path}}
     test -x {{tool_path}}/aqua || curl -sSfL https://raw.githubusercontent.com/aquaproj/aqua-installer/v4.0.2/aqua-installer | bash
 
-tools *tags:
+tools *tags: aqua
     aqua install {{ if tags == "" { "" } else { "-t " + replace(tags, " ", " -t ") } }}
 
-check: aqua tools test-ci # todo: fmt/lint
+check: tools
+    just format-check
+    just lint
+    just test-ci
+    just tidy
+
+# Apply the Go formatters configured in .golangci.yml.
+format target="./...":
+    golangci-lint fmt {{target}}
+
+# Check formatting without rewriting files; propagate formatter errors too.
+format-check target="./...":
+    diff="$(golangci-lint fmt -d {{target}})" && { printf '%s' "$diff"; test -z "$diff"; }
+
+lint target="./...":
+    golangci-lint run {{target}}
+
+alias lint-go := lint
+
+lint-fix target="./...":
+    golangci-lint run --fix {{target}}
+
+tidy:
     go mod tidy
-
-format target="":
-    {{tool_path}}/golangci-lint fmt {{target}}
-
-lint target="":
-    {{tool_path}}/golangci-lint run {{target}}
-
-lint-fix target="":
-    {{tool_path}}/golangci-lint run --fix {{target}}
 
 test-ci:
     go test -short -timeout 2m ./...
 
 test:
     go test -timeout 10m ./...
+
+# Check reachable code for known vulnerabilities.
+vulncheck:
+    govulncheck ./...

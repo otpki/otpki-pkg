@@ -1,11 +1,12 @@
 package healthcheck
 
 import (
-	"connectrpc.com/connect/v2"
-	"connectrpc.com/connect/v2/connectinprocess"
 	"context"
 	"errors"
 	"testing"
+
+	"connectrpc.com/connect/v2"
+	"connectrpc.com/connect/v2/connectinprocess"
 
 	healthv1 "google.golang.org/grpc/health/grpc_health_v1"
 )
@@ -75,7 +76,11 @@ func TestInProcessHealth(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer watch.Close()
+	defer func() {
+		if err := watch.Close(); err != nil {
+			t.Errorf("closing watch: %v", err)
+		}
+	}()
 	var update healthv1.HealthCheckResponse
 	if err := watch.Receive(&update); err != nil {
 		t.Fatal(err)

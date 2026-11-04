@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"connectrpc.com/connect/v2"
+	"github.com/stretchr/testify/require"
 )
 
 func TestToPublicConnectErrorUsesPublicMessageAndCode(t *testing.T) {
@@ -17,7 +18,7 @@ func TestToPublicConnectErrorUsesPublicMessageAndCode(t *testing.T) {
 
 	got := ToPublicConnectError(err)
 
-	connectErr, ok := got.(*connect.Error)
+	connectErr, ok := errors.AsType[*connect.Error](got)
 	if !ok {
 		t.Fatalf("expected *connect.Error, got %T", got)
 	}
@@ -34,7 +35,7 @@ func TestToPublicConnectErrorFallsBackToInternalMessage(t *testing.T) {
 
 	got := ToPublicConnectError(err)
 
-	connectErr, ok := got.(*connect.Error)
+	connectErr, ok := errors.AsType[*connect.Error](got)
 	if !ok {
 		t.Fatalf("expected *connect.Error, got %T", got)
 	}
@@ -49,7 +50,7 @@ func TestToPublicConnectErrorFallsBackToInternalMessage(t *testing.T) {
 func TestToPublicConnectErrorBestEffortPlainError(t *testing.T) {
 	got := ToPublicConnectError(errors.New("plain failure"))
 
-	connectErr, ok := got.(*connect.Error)
+	connectErr, ok := errors.AsType[*connect.Error](got)
 	if !ok {
 		t.Fatalf("expected *connect.Error, got %T", got)
 	}
@@ -79,10 +80,27 @@ func TestToPublicConnectErrorRetainsCause(t *testing.T) {
 	if !errors.Is(converted, cause) {
 		t.Fatal("lost server-side cause")
 	}
-	if converted.(*connect.Error).Message() != "access denied" {
+	connectErr, ok := errors.AsType[*connect.Error](converted)
+	if !ok {
+		t.Fatalf("expected Connect error, got %T", converted)
+	}
+	if connectErr.Message() != "access denied" {
 		t.Fatal(converted)
 	}
-	if ToPublicConnectError(converted) != converted {
-		t.Fatal("existing Connect error should be preserved")
+	require.Same(t, converted, ToPublicConnectError(converted), "existing Connect error should be preserved")
+}
+
+func TestOopsConnectCodeRejectsIntegerOverflow(t *testing.T) {
+	for _, value := range []any{int(-1), int32(-1), int64(-1), int64(1 << 32), int64(1<<32) + int64(connect.CodePermissionDenied)} {
+		_, ok := oopsConnectCode(value)
+		if ok {
+			t.Errorf("accepted out-of-range code %v", value)
+		}
+	}
+	for _, value := range []any{int(connect.CodePermissionDenied), int32(connect.CodePermissionDenied), int64(connect.CodePermissionDenied)} {
+		code, ok := oopsConnectCode(value)
+		if !ok || code != connect.CodePermissionDenied {
+			t.Errorf("lost valid code %v: %v, %v", value, code, ok)
+		}
 	}
 }

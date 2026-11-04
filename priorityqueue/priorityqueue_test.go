@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type Item struct {
@@ -29,7 +30,13 @@ func TestPQ(t *testing.T) {
 	heap.Push(pq, NewItem("2", 2))
 	heap.Push(pq, NewItem("4", 4))
 
-	assert.Equal(t, heap.Pop(pq).(*Item).GetValue(), "2")
-	assert.Equal(t, heap.Pop(pq).(*Item).GetValue(), "4")
-	assert.Equal(t, heap.Pop(pq).(*Item).GetValue(), "6")
+	item2, ok := heap.Pop(pq).(*Item)
+	require.True(t, ok)
+	assert.Equal(t, item2.GetValue(), "2")
+	item4, ok := heap.Pop(pq).(*Item)
+	require.True(t, ok)
+	assert.Equal(t, item4.GetValue(), "4")
+	item6, ok := heap.Pop(pq).(*Item)
+	require.True(t, ok)
+	assert.Equal(t, item6.GetValue(), "6")
 }
