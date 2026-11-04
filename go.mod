@@ -9,7 +9,6 @@ require (
 	github.com/dapr/kit v0.19.0
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/go-hclog v1.6.3
-	github.com/hashicorp/vault v1.2.1-0.20261022202749-0e7c41b93621
 	github.com/hibiken/asynq v0.26.0
 	github.com/jung-kurt/gofpdf v1.16.2
 	github.com/miekg/pkcs11 v1.1.2
@@ -39,6 +38,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/fatih/color v1.19.0 // indirect
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
+	github.com/go-test/deep v1.1.1 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.16 // indirect

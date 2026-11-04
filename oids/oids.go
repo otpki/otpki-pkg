@@ -167,8 +167,8 @@ var (
 	OidPBMAC1           = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 5, 14}
 	OidPBKDF2           = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 5, 12}
 
-	OidHMACWithSHA1_PKCS = asn1.ObjectIdentifier{1, 2, 840, 113549, 2, 7}   //nolint:revive // Preserve the public identifier and its established algorithm spelling.
-	OidHMACWithSHA1_IKE  = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 8, 1, 2} //nolint:revive // Preserve the public identifier and its established algorithm spelling.
+	OidHMACWithSHA1_PKCS = asn1.ObjectIdentifier{1, 2, 840, 113549, 2, 7}   //nolint:revive
+	OidHMACWithSHA1_IKE  = asn1.ObjectIdentifier{1, 3, 6, 1, 5, 5, 8, 1, 2} //nolint:revive
 	OidHMACWithSHA224    = asn1.ObjectIdentifier{1, 2, 840, 113549, 2, 8}
 	OidHMACWithSHA256    = asn1.ObjectIdentifier{1, 2, 840, 113549, 2, 9}
 	OidHMACWithSHA384    = asn1.ObjectIdentifier{1, 2, 840, 113549, 2, 10}
@@ -191,12 +191,12 @@ var (
 	OidSLHDSASHA2_192f  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 23}
 	OidSLHDSASHA2_256s  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 24}
 	OidSLHDSASHA2_256f  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 25}
-	OidSLHDSASHAKE_128s = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 26} //nolint:revive // Preserve the public identifier and its established algorithm spelling.
-	OidSLHDSASHAKE_128f = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 27} //nolint:revive // Preserve the public identifier and its established algorithm spelling.
-	OidSLHDSASHAKE_192s = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 28} //nolint:revive // Preserve the public identifier and its established algorithm spelling.
-	OidSLHDSASHAKE_192f = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 29} //nolint:revive // Preserve the public identifier and its established algorithm spelling.
-	OidSLHDSASHAKE_256s = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 30} //nolint:revive // Preserve the public identifier and its established algorithm spelling.
-	OidSLHDSASHAKE_256f = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 31} //nolint:revive // Preserve the public identifier and its established algorithm spelling.
+	OidSLHDSASHAKE_128s = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 26} //nolint:revive
+	OidSLHDSASHAKE_128f = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 27} //nolint:revive
+	OidSLHDSASHAKE_192s = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 28} //nolint:revive
+	OidSLHDSASHAKE_192f = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 29} //nolint:revive
+	OidSLHDSASHAKE_256s = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 30} //nolint:revive
+	OidSLHDSASHAKE_256f = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 3, 31} //nolint:revive
 
 	// HSS/LMS (RFC 8708)
 	OidHSSLMS = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 16, 3, 17}

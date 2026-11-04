@@ -217,7 +217,7 @@ func fetch(ctx context.Context, client *http.Client, method, rawURL, contentType
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = response.Body.Close() }() // Read errors are handled below; closing a response body needs no further action.
+	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("revocation responder returned HTTP %d", response.StatusCode)
 	}

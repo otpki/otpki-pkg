@@ -3,8 +3,8 @@ package helpers
 import (
 	"context"
 
-	"github.com/hashicorp/vault/shamir"
 	"github.com/otpki/otpki-pkg/oopsie"
+	"github.com/otpki/otpki-pkg/shamir"
 )
 
 func ShamirHexStringsToSecret(ctx context.Context, hexStrings []string) (string, error) {
