@@ -32,8 +32,6 @@ jobs:
     - name: Configure git for private GitHub deps
       run: |
         git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
-        # Fetch the public IOGO fork anonymously, overriding the broader private-dependency rule.
-        git config --global url."https://github.com/otpki/iogo".insteadOf "https://github.com/otpki/iogo"
       env:
         GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
 
@@ -98,8 +96,6 @@ jobs:
     - name: Configure git for private GitHub deps
       run: |
         git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
-        # Fetch the public IOGO fork anonymously, overriding the broader private-dependency rule.
-        git config --global url."https://github.com/otpki/iogo".insteadOf "https://github.com/otpki/iogo"
       env:
         GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
 
