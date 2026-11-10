@@ -1,13 +1,18 @@
 name: Check
 
 permissions:
-  id-token: write
   contents: read
 
 on:
+  push:
+    branches: [master]
   pull_request:
     branches: [ master ]
   workflow_dispatch:
+
+concurrency:
+  group: check-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check:
@@ -37,18 +42,10 @@ jobs:
 
     - name: Checkout code
       uses: actions/checkout@v7
-
-    - name: Setup GO
-      uses: actions/setup-go@v7
       with:
-        go-version: '1.27'
-        check-latest: true
+        persist-credentials: false
 
-    - name: Setup Just
-      uses: extractions/setup-just@v3
-
-    - name: Install tools
-      run: just tools
+    - uses: ./.github/actions/setup-ci
 
     - name: Check Go formatting
       run: just format-check
@@ -101,18 +98,10 @@ jobs:
 
     - name: Checkout code
       uses: actions/checkout@v7
-
-    - name: Setup GO
-      uses: actions/setup-go@v7
       with:
-        go-version: '1.27'
-        check-latest: true
+        persist-credentials: false
 
-    - name: Setup Just
-      uses: extractions/setup-just@v3
-
-    - name: Install tools
-      run: just tools
+    - uses: ./.github/actions/setup-ci
 
     - name: Check known vulnerabilities
       run: just vulncheck

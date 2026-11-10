@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/otpki/otpki-pkg/blob/master/README.md
+    about: Package overview, development commands, and links to package guides.
+  - name: Security
+    url: https://github.com/otpki/otpki-pkg/blob/master/SECURITY.md
+    about: Please report vulnerabilities privately, not through public issues.

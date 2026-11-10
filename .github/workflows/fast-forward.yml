@@ -2,11 +2,16 @@ name: fast-forward
 on:
   issue_comment:
     types: [created, edited]
+permissions:
+  contents: read
+
 jobs:
   fast-forward:
-    # only run if the comment contains the /fast-forward command.
-    if: ${{ contains(github.event.comment.body, '/fast-forward')
-            && github.event.issue.pull_request }}
+    # Public issue comments must not grant outsiders merge authority.
+    if: >-
+      ${{ github.event.issue.pull_request
+          && startsWith(github.event.comment.body, '/fast-forward')
+          && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) }}
     runs-on: ubuntu-latest
 
     permissions:
@@ -15,6 +20,16 @@ jobs:
       issues: write
 
     steps:
+      - name: Require repository write permission
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_AUTHOR: ${{ github.event.comment.user.login }}
+        run: |
+          permission="$(gh api "repos/${GITHUB_REPOSITORY}/collaborators/${COMMENT_AUTHOR}/permission" --jq '.permission')"
+          case "$permission" in
+            admin|maintain|write) ;;
+            *) echo "The comment author must have repository write permission."; exit 1 ;;
+          esac
       - name: Fast forwarding
         uses: sequoia-pgp/fast-forward@v1
         with:

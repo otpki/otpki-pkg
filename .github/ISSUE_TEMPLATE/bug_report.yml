@@ -1,0 +1,55 @@
+name: Bug report
+description: Something is broken
+title: "[bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One or two sentences. What broke and what you expected.
+      placeholder: "TL;DR: helpers rejects a valid PEM certificate header"
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce it
+      description: Steps or a small code sample. The smaller the better.
+      placeholder: |
+        1. Import the affected package
+        2. Call the function with a minimal synthetic input
+        3. Show the actual result and the expected result
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Fill in the lines that apply.
+      placeholder: |
+        Package: github.com/otpki/otpki-pkg/helpers
+        Module version: go list -m github.com/otpki/otpki-pkg
+        Go version: go version
+        OS/arch: go env GOOS GOARCH
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant output, if any. Remove passwords, tokens, private keys, and customer data before pasting. Report vulnerabilities privately using SECURITY.md.
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Workarounds, versions that used to work, related issues.
+    validations:
+      required: false
