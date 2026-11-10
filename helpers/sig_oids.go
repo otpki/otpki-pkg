@@ -8,7 +8,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/asn1"
 
-	"github.com/otpki/iogo/crypto/circl"
+	circl "github.com/cloudflare/circl/sign"
 	"github.com/otpki/iogo/crypto/x509"
 
 	"github.com/otpki/otpki-pkg/oids"

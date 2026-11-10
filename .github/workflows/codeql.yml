@@ -1,0 +1,27 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "24 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  analyze:
+    permissions:
+      contents: read
+      security-events: write
+    uses: otpki/.github/.github/workflows/reusable-codeql.yml@v1
+    with:
+      languages: '[{"language":"actions","build-mode":"none"},{"language":"go","build-mode":"manual"}]'
+      build-commands: go build ./...
