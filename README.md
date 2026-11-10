@@ -22,7 +22,7 @@ The [Docker build helper](tools/docker/buildctl/README.md) lives under
 
 ## Requirements and installation
 
-The minimum Go version is 1.27.2, as declared in `go.mod`. Once the publication
+The minimum Go version is 1.27.3, as declared in `go.mod`. Once the publication
 prerequisites below are complete, install a package with:
 
 ```sh

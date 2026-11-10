@@ -1,6 +1,6 @@
 module github.com/otpki/otpki-pkg
 
-go 1.27.2
+go 1.27.3
 
 require (
 	codeberg.org/miekg/dns v0.6.125

@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Go 1.27.2 or newer, matching the minimum in `go.mod`.
+- Go 1.27.3 or newer, matching the minimum in `go.mod`.
 - `just` and `curl` on `PATH`. Pinned development tools are installed under
   `.tool/` by `just tools`.
 
