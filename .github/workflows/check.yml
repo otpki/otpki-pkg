@@ -1,118 +1,26 @@
 name: Check
 
-permissions:
-  id-token: write
-  contents: read
-
 on:
   pull_request:
-    branches: [ master ]
+    branches: [main]
+  push:
+    branches: [main]
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check:
-    runs-on: ubuntu-latest
-    env:
-      GOPRIVATE: github.com/otpki/*
-
-    steps:
-    - name: Generate GitHub App token
-      id: generate_token
-      uses: actions/create-github-app-token@v2
-      with:
-        app-id: ${{ secrets.GH_APP_ID }}
-        private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
-        owner: otpki
-        repositories: |
-          ${{ github.event.repository.name }}
-          otpki-protobuf
-          scep
-          circl
-
-    - name: Configure git for private GitHub deps
-      run: |
-        git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
-      env:
-        GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
-
-    - name: Checkout code
-      uses: actions/checkout@v7
-
-    - name: Setup GO
-      uses: actions/setup-go@v7
-      with:
-        go-version: '1.27'
-        check-latest: true
-
-    - name: Setup Just
-      uses: extractions/setup-just@v3
-
-    - name: Install tools
-      run: just tools
-
-    - name: Check Go formatting
-      run: just format-check
-
-    - name: Run Go linters
-      run: just lint
-
-    - name: Run short tests
-      run: just test-ci
-
-    - name: Tidy Go modules
-      run: just tidy
-
-    - name: Check for file changes
-      run: |
-        if [ -n "$(git status --porcelain)" ]; then
-          echo "File has changed! Either .gitignore or formatting changes required."
-          git status --porcelain
-          exit 1
-        else
-          echo "No changes needed."
-        fi
-
-  vulncheck:
-    name: Vulnerability scan (advisory)
-    continue-on-error: true
-    runs-on: ubuntu-latest
-    env:
-      GOPRIVATE: github.com/otpki/*
-
-    steps:
-    - name: Generate GitHub App token
-      id: generate_token
-      uses: actions/create-github-app-token@v2
-      with:
-        app-id: ${{ secrets.GH_APP_ID }}
-        private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
-        owner: otpki
-        repositories: |
-          ${{ github.event.repository.name }}
-          otpki-protobuf
-          scep
-          circl
-
-    - name: Configure git for private GitHub deps
-      run: |
-        git config --global url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf "https://github.com/"
-      env:
-        GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
-
-    - name: Checkout code
-      uses: actions/checkout@v7
-
-    - name: Setup GO
-      uses: actions/setup-go@v7
-      with:
-        go-version: '1.27'
-        check-latest: true
-
-    - name: Setup Just
-      uses: extractions/setup-just@v3
-
-    - name: Install tools
-      run: just tools
-
-    - name: Check known vulnerabilities
-      run: just vulncheck
+    uses: otpki/.github/.github/workflows/reusable-go-check.yml@v1
+    with:
+      commands: |
+        just format-check
+        just lint
+        just test-ci
+        just tidy
+      vulncheck-command: just vulncheck
