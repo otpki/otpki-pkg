@@ -19,8 +19,6 @@ require (
 	github.com/samber/oops/loggers/zerolog v0.0.0-20261101193506-71de68243685
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/smallstep/pkcs7 v0.2.3
-	github.com/spf13/cobra v1.10.2
-	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.12.1
 	github.com/xhit/go-simple-mail/v2 v2.17.0
 	go.opentelemetry.io/otel v1.47.0
@@ -38,24 +36,16 @@ require (
 	filippo.io/edwards25519 v1.2.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/fatih/color v1.19.0 // indirect
-	github.com/fsnotify/fsnotify v1.10.1 // indirect
 	github.com/go-test/deep v1.1.1 // indirect
-	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
-	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.16 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/oklog/ulid/v2 v2.1.2 // indirect
-	github.com/pelletier/go-toml/v2 v2.4.3 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/redis/go-redis/v9 v9.23.0 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
-	github.com/sagikazarmark/locafero v0.12.0 // indirect
 	github.com/samber/lo v1.53.0 // indirect
 	github.com/sirupsen/logrus v1.10.2 // indirect
-	github.com/spf13/afero v1.15.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
-	github.com/spf13/pflag v1.1.0 // indirect
-	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/toorop/go-dkim v0.0.0-20250226130143-9025cce95817 // indirect
 	go.uber.org/atomic v1.12.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.6 // indirect
