@@ -1,9 +1,11 @@
-package helpers
+package crmf
 
 import (
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"math/big"
+
+	"github.com/otpki/otpki-pkg/pkiutil"
 )
 
 // AttributeTypeAndValue ::= SEQUENCE { type OBJECT IDENTIFIER, value ANY DEFINED BY type }
@@ -15,12 +17,12 @@ type AttributeTypeAndValue struct {
 // CertTemplate ::= SEQUENCE { ... }
 // Only the fields you need for now.
 type CertTemplate struct {
-	Version      int                  `asn1:"optional,tag:0"`
-	SerialNumber *big.Int             `asn1:"optional,tag:1"`
-	Issuer       asn1.RawValue        `asn1:"optional,tag:3"`
-	Subject      asn1.RawValue        `asn1:"optional,tag:5"` // pkix.Name-encoded DER (Name)
-	PublicKey    SubjectPublicKeyInfo `asn1:"optional,tag:6"`
-	Extensions   []pkix.Extension     `asn1:"optional,tag:9,sequence"`
+	Version      int                          `asn1:"optional,tag:0"`
+	SerialNumber *big.Int                     `asn1:"optional,tag:1"`
+	Issuer       asn1.RawValue                `asn1:"optional,tag:3"`
+	Subject      asn1.RawValue                `asn1:"optional,tag:5"` // pkix.Name-encoded DER (Name)
+	PublicKey    pkiutil.SubjectPublicKeyInfo `asn1:"optional,tag:6"`
+	Extensions   []pkix.Extension             `asn1:"optional,tag:9,sequence"`
 }
 
 // CertRequest ::= SEQUENCE { certReqId INTEGER, certTemplate CertTemplate, controls OPTIONAL }

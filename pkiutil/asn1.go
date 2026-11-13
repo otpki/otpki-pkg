@@ -1,4 +1,4 @@
-package helpers
+package pkiutil
 
 import (
 	"encoding/asn1"
@@ -40,8 +40,9 @@ func derWrapSequence(content []byte) []byte {
 		lenBytes = append([]byte{0x80 | lengthOctets}, tmp...)
 	}
 
-	out := make([]byte, 0, 1+len(lenBytes)+n)
-	out = append(out, DerSequence) // SEQUENCE
+	// Let append check slice growth rather than summing an untrusted content
+	// length into an allocation capacity, which could overflow int.
+	out := []byte{DerSequence}     // SEQUENCE
 	out = append(out, lenBytes...) // length
 	out = append(out, content...)  // contents
 	return out

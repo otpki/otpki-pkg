@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"unicode"
 
+	pkiutil "github.com/otpki/otpki-pkg/pkiutil"
+
 	"github.com/otpki/iogo/crypto/x509"
 
 	"github.com/otpki/otpki-pkg/oids"
@@ -64,8 +66,8 @@ func IsIA5String(s string) bool {
 
 func GetKeyUsageDER(usage x509.KeyUsage) ([]byte, error) {
 	var a [2]byte
-	a[0] = ReverseBitsInAByte(byte(usage & 0xff))
-	a[1] = ReverseBitsInAByte(byte((usage >> 8) & 0xff))
+	a[0] = pkiutil.ReverseBitsInAByte(byte(usage & 0xff))
+	a[1] = pkiutil.ReverseBitsInAByte(byte((usage >> 8) & 0xff))
 
 	l := 1
 	if a[1] != 0 {
@@ -73,7 +75,7 @@ func GetKeyUsageDER(usage x509.KeyUsage) ([]byte, error) {
 	}
 
 	bitString := a[:l]
-	return asn1.Marshal(asn1.BitString{Bytes: bitString, BitLength: ASN1BitLength(bitString)})
+	return asn1.Marshal(asn1.BitString{Bytes: bitString, BitLength: pkiutil.ASN1BitLength(bitString)})
 }
 
 func GetExtKeyUsageDER(eku []x509.ExtKeyUsage, extraEku []asn1.ObjectIdentifier) ([]byte, error) {

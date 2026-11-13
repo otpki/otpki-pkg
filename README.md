@@ -1,5 +1,24 @@
 # Common packages
 
+The shared enrollment protocol packages are:
+
+| Package | Purpose |
+|---|---|
+| `cmp` | CMP wire types, DER encoding/decoding, original protected bytes, legacy PasswordBasedMac, and signature protection. |
+| `crmf` | CRMF request types and encoding, original request bytes, signature POP construction/parsing, and signed-input selection. |
+| `pkiutil` | ASN.1/SPKI types, signature algorithm mappings, key conversion, and signature verification. |
+
+These packages do not import the OTPKI server or `helpers`. The existing
+ASN.1, CRMF, and signature-mapping exports in `helpers` remain compatibility
+aliases and wrappers. New protocol consumers should use the focused packages.
+The dependency direction is `cmp` → `crmf` → `pkiutil`; CMC and CMP callers keep
+their own authorization, trust, transaction state, and protocol error mapping.
+
+This extraction preserves existing supported encodings and algorithm behavior.
+It does not add PBMAC1, harden protocol policy, or claim complete CMP/CRMF
+conformance. Publication still requires validating the module's existing crypto
+fork dependencies for anonymous downstream consumers.
+
 Install Go, `just`, and `curl`, then install pinned tools:
 
 ```sh
